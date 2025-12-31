@@ -209,7 +209,7 @@ const Phlebotomy = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-2">
+                <div className="flex-1 overflow-y-auto p-2 min-h-0">
                     {filteredTests.length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                             <Beaker className="h-12 w-12 mx-auto mb-3 opacity-20" />
@@ -316,32 +316,34 @@ const Phlebotomy = () => {
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {/* SCROLLABLE CONTENT AREA: TEST LIST + FORM INPUTS */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 custom-scrollbar">
+                    {/* Test List */}
                     {selectedTests.length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                             <p className="text-sm">No tests selected yet.</p>
                         </div>
                     ) : (
-                        selectedTests.map(test => (
-                            <div key={test.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                <div>
-                                    <h4 className="font-medium text-slate-800 text-sm">{test.name}</h4>
-                                    <span className="text-xs text-slate-500">{test.code}</span>
+                        <div className="space-y-3">
+                            {selectedTests.map(test => (
+                                <div key={test.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                    <div>
+                                        <h4 className="font-medium text-slate-800 text-sm">{test.name}</h4>
+                                        <span className="text-xs text-slate-500">{test.code}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <span className="font-semibold text-slate-700 text-sm mr-3">₹{test.price}</span>
+                                        <button onClick={() => removeTest(test.id)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center">
-                                    <span className="font-semibold text-slate-700 text-sm mr-3">₹{test.price}</span>
-                                    <button onClick={() => removeTest(test.id)} className="text-slate-400 hover:text-rose-500 transition-colors">
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
+                            ))}
+                        </div>
                     )}
-                </div>
 
-                <div className="p-6 bg-slate-50 border-t border-slate-100">
-                    <div className="mb-4 space-y-4">
-                        {/* Processing Mode Selection */}
+                    {/* ORDER DETAILS INPUTS (Moved from Footer) */}
+                    <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
                         <div className="flex gap-4">
                             <div className="flex-1">
                                 <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Processing Center</label>
@@ -377,6 +379,7 @@ const Phlebotomy = () => {
                                 )}
                             </div>
                         </div>
+
                         <div className="flex gap-4">
                             <div className="flex-1">
                                 <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Payment Mode</label>
@@ -405,7 +408,7 @@ const Phlebotomy = () => {
                             </div>
                         </div>
 
-                        <div className="flex gap-4 mb-4 items-center">
+                        <div className="flex gap-4 items-center">
                             <div className="flex-1">
                                 <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Discount (₹)</label>
                                 <input
@@ -430,7 +433,7 @@ const Phlebotomy = () => {
                             </div>
                         </div>
 
-                        <div className="mb-4">
+                        <div>
                             <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Payment Remarks / UTR No.</label>
                             <input
                                 type="text"
@@ -441,19 +444,21 @@ const Phlebotomy = () => {
                             />
                         </div>
                     </div>
+                </div>
 
-                    <div className="space-y-2 mb-4 border-t border-slate-200 pt-4">
-                        {tatInfo && (
-                            <div className="bg-blue-50 p-3 rounded-lg flex items-start gap-3 mb-4 border border-blue-100">
-                                <Clock className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                {/* FOOTER: STATS & ACTION */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+                    <div className="space-y-3 mb-4">
+                        {tatInfo && selectedTests.length > 0 && (
+                            <div className="bg-blue-50 p-2 rounded-lg flex items-start gap-2 border border-blue-100">
+                                <Clock className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Expected Report Delivery</p>
-                                    <p className="text-sm font-medium text-blue-900">
+                                    <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Report Delivery</p>
+                                    <p className="text-xs font-medium text-blue-900">
                                         {tatInfo.date.toLocaleString('en-US', {
                                             weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
                                         })}
                                     </p>
-                                    <p className="text-xs text-blue-600 mt-0.5">TAT: ~{tatInfo.hours} Hours</p>
                                 </div>
                             </div>
                         )}
@@ -473,7 +478,7 @@ const Phlebotomy = () => {
                                 {advancePaid > 0 && <span className="text-xs text-emerald-600 font-semibold block">Paid: ₹{advancePaid}</span>}
                             </div>
                             <div className="text-right">
-                                <span className="text-2xl font-bold text-slate-800">₹{calculateTotal()}</span>
+                                <span className="text-xl font-bold text-slate-800">₹{calculateTotal()}</span>
                                 {advancePaid > 0 && <p className="text-xs text-rose-600 font-bold">Bal: ₹{Math.max(0, calculateTotal() - advancePaid)}</p>}
                             </div>
                         </div>
