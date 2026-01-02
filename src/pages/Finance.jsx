@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, CreditCard, Calendar, ArrowUpRight, ArrowDownRight, Search, FileText, Download, Building2 } from 'lucide-react';
+import { DollarSign, TrendingUp, CreditCard, Calendar, ArrowUpRight, ArrowDownRight, Search, FileText, Download, Building2, Edit2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { storage } from '../data/storage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 
 const Finance = () => {
+    const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [activeTab, setActiveTab] = useState('overview');
     const [stats, setStats] = useState({
@@ -280,23 +282,57 @@ const Finance = () => {
         XLSX.writeFile(wb, filename);
     };
 
+    const handleClearDue = (order) => {
+        if (confirm(`Confirm: Mark Order ${order.id} as PAID and clear due amount?`)) {
+            const updated = {
+                ...order,
+                paymentStatus: 'Paid',
+                balanceDue: 0,
+                advancePaid: order.totalAmount, // Assuming full payment
+                status: order.status === 'cancelled' ? 'pending' : order.status // Restore if it was cancelled? Maybe not.
+            };
+            storage.updateOrder(order.id, updated);
+            loadData(); // Reload
+        }
+    };
+
+    const handleCancelOrder = (order) => {
+        if (confirm(`Are you sure you want to CANCEL Order ${order.id}? This action cannot be easily undone.`)) {
+            const updated = {
+                ...order,
+                status: 'cancelled',
+                paymentStatus: 'Void',
+                balanceDue: 0
+            };
+            storage.updateOrder(order.id, updated);
+            loadData(); // Reload
+        }
+    };
+    const handleDownloadReceipt = (order) => {
+        sessionStorage.setItem('print_invoice_data', JSON.stringify(order));
+        window.open('/print/invoice', '_blank');
+    };
+
     const StatusChip = ({ status }) => {
         const styles = {
             completed: 'bg-emerald-100 text-emerald-700',
             pending: 'bg-amber-100 text-amber-700',
             processing: 'bg-blue-100 text-blue-700',
-            cancelled: 'bg-rose-100 text-rose-700'
+            cancelled: 'bg-rose-100 text-rose-700',
+            'payment-due': 'bg-orange-100 text-orange-700 font-bold whitespace-nowrap'
         };
+        const displayStatus = status === 'payment-due' ? 'PAYMENT DUE' : status;
         return (
-            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${styles[status] || 'bg-slate-100 text-slate-600'}`}>
-                {status}
+            <span className={`inline-block px-2 py-1 rounded text-[10px] tracking-wider font-bold uppercase ${styles[status] || styles['pending']}`}>
+                {displayStatus}
             </span>
         );
     };
 
     const filteredTransactions = orders.filter(o =>
         o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.patientId.toLowerCase().includes(searchTerm.toLowerCase())
+        o.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.patientName && o.patientName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     return (
@@ -416,7 +452,7 @@ const Finance = () => {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <input
                                     type="text"
-                                    placeholder="Search transactions..."
+                                    placeholder="Search by ID, Patient Name..."
                                     className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-100 outline-none text-sm"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -439,22 +475,63 @@ const Finance = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredTransactions.length === 0 ? (
-                                        <tr><td colSpan="6" className="text-center py-12 text-slate-400">No transactions found.</td></tr>
+                                        <tr><td colSpan="7" className="text-center py-12 text-slate-400">No transactions found.</td></tr>
                                     ) : (
                                         filteredTransactions.slice(0, 10).map(order => (
                                             <tr key={order.id} className="hover:bg-slate-50/50">
                                                 <td className="px-6 py-4 font-mono text-xs font-bold text-slate-600">{order.id}</td>
-                                                <td className="px-6 py-4 text-sm font-medium text-slate-800">{order.patientId}</td>
+                                                <td className="px-6 py-4 text-sm font-medium text-slate-800">
+                                                    <div>{order.patientName || order.patientId}</div>
+                                                    <div className="text-xs text-slate-400">{order.patientId}</div>
+                                                </td>
                                                 <td className="px-6 py-4 text-sm text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</td>
                                                 <td className="px-6 py-4 text-sm text-slate-600 font-medium">{order.paymentMode || 'Cash'}</td>
                                                 <td className="px-6 py-4">
-                                                    <StatusChip status={order.status} />
+                                                    <StatusChip status={(order.balanceDue > 0 || order.paymentStatus === 'Pending') && order.status !== 'cancelled' ? 'payment-due' : order.status} />
+                                                    {order.balanceDue > 0 && (
+                                                        <div className="mt-1 text-xs font-bold text-rose-600">
+                                                            Due: ₹{order.balanceDue}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-bold text-slate-800">₹{order.totalAmount}</td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600">
-                                                        <Download className="h-4 w-4" />
-                                                    </button>
+                                                    <div className="flex justify-end space-x-2 items-center">
+                                                        <button
+                                                            onClick={() => handleDownloadReceipt(order)}
+                                                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600"
+                                                            title="Download Receipt"
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                        </button>
+                                                        {order.status !== 'cancelled' && (order.paymentStatus !== 'Paid' || ((order.balanceDue || 0) > 0)) ? (
+                                                            <button
+                                                                onClick={() => handleClearDue(order)}
+                                                                className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-600"
+                                                                title="Settle Balance / Mark Fully Paid"
+                                                            >
+                                                                <CreditCard className="h-4 w-4" />
+                                                            </button>
+                                                        ) : null}
+                                                        {order.status !== 'cancelled' && (
+                                                            <button
+                                                                onClick={() => navigate('/phlebotomy', { state: { editOrderId: order.id } })}
+                                                                className="p-1 hover:bg-amber-50 rounded text-slate-400 hover:text-amber-600"
+                                                                title="Edit Bill"
+                                                            >
+                                                                <Edit2 className="h-4 w-4" />
+                                                            </button>
+                                                        )}
+                                                        {order.status !== 'cancelled' && (
+                                                            <button
+                                                                onClick={() => handleCancelOrder(order)}
+                                                                className="p-1 hover:bg-rose-50 rounded text-slate-400 hover:text-rose-600"
+                                                                title="Cancel Bill"
+                                                            >
+                                                                <TrendingUp className="h-4 w-4 rotate-180" /> {/* Using rotate as a hack for cancel icon if trash is not desired, but let's use Trash if imported? No Trash imported. Use TrendingUp down? Or 'X' inside SVG? Let's use simple text 'X' or existing icon. FileText is imported. DollarSign. Trash is NOT imported. Use 'ArrowDownRight'. */}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))

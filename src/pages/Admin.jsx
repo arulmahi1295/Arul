@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, AlertTriangle, FileText, Database } from 'lucide-react';
 import { storage } from '../data/storage';
+import { TEST_CATALOG } from '../data/testCatalog';
 
 const Admin = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -56,9 +57,14 @@ const Admin = () => {
             if (order.tests) {
                 order.tests.forEach(test => {
                     totalMRP += (test.price || 0);
-                    // use l2lPrice if available, else 50% estimate
-                    const l2l = test.l2lPrice || (test.price * 0.5);
-                    totalCost += l2l;
+
+                    // Lookup latest L2L price from catalog (handle historical data)
+                    const catalogTest = TEST_CATALOG.find(t => t.id === test.id || t.code === test.code);
+                    const l2lPrice = catalogTest?.l2lPrice || test.l2lPrice;
+
+                    // Use L2L price if available, otherwise default to 50% of MRP
+                    const cost = l2lPrice || (test.price * 0.5);
+                    totalCost += cost;
                 });
             }
         });
@@ -211,10 +217,12 @@ const Admin = () => {
     };
 
     const handleFactoryReset = () => {
-        if (confirm('CRITICAL WARNING: This will delete ALL patients and orders permanently. Are you sure?')) {
-            localStorage.clear();
+        // Already confirmed via UI state
+        storage.factoryReset();
+        // Small delay to ensure storage is cleared before reload
+        setTimeout(() => {
             window.location.reload();
-        }
+        }, 500);
     };
 
     if (!isAuthenticated) {

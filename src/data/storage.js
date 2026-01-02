@@ -47,18 +47,23 @@ export const storage = {
     },
 
     getNextPatientId: () => {
-        const counters = get(STORAGE_KEYS.COUNTERS);
-        // If counters is empty or not an object (since get returns [] by default for non-exist), init it
-        let currentCounters = Array.isArray(counters) ? { patient: 0, order: 0 } : counters;
+        let counters = {};
+        try {
+            const item = localStorage.getItem(STORAGE_KEYS.COUNTERS);
+            counters = item ? JSON.parse(item) : { patient: 0, order: 0 };
+            // Handle case where it might have been saved as array previously due to bug
+            if (Array.isArray(counters)) counters = { patient: 0, order: 0 };
+        } catch (e) {
+            counters = { patient: 0, order: 0 };
+        }
 
-        currentCounters.patient = (currentCounters.patient || 0) + 1;
+        counters.patient = (counters.patient || 0) + 1;
 
-        // Save counters back (ensure it's not saved as array if it was)
-        localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(currentCounters));
+        localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(counters));
 
         // Format: P-2024-001
         const year = new Date().getFullYear();
-        return `P-${year}-${String(currentCounters.patient).padStart(3, '0')}`;
+        return `P-${year}-${String(counters.patient).padStart(3, '0')}`;
     },
 
     searchPatients: (query) => {
@@ -79,21 +84,28 @@ export const storage = {
 
     saveOrder: (orderData) => {
         const orders = get(STORAGE_KEYS.ORDERS);
-        const counters = get(STORAGE_KEYS.COUNTERS);
-        let currentCounters = Array.isArray(counters) ? { patient: 0, order: 0 } : counters;
 
-        currentCounters.order = (currentCounters.order || 0) + 1;
-        localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(currentCounters));
+        let counters = {};
+        try {
+            const item = localStorage.getItem(STORAGE_KEYS.COUNTERS);
+            counters = item ? JSON.parse(item) : { patient: 0, order: 0 };
+            if (Array.isArray(counters)) counters = { patient: 0, order: 0 };
+        } catch (e) {
+            counters = { patient: 0, order: 0 };
+        }
+
+        counters.order = (counters.order || 0) + 1;
+        localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(counters));
 
         const year = new Date().getFullYear();
-        let orderId = `ORD-${year}-${String(currentCounters.order).padStart(3, '0')}`;
+        let orderId = `ORD-${year}-${String(counters.order).padStart(3, '0')}`;
 
-        // Ensure Uniqueness
+        // Ensure Uniqueness (Double check against existing orders)
         while (orders.some(o => o.id === orderId)) {
-            currentCounters.order = (currentCounters.order || 0) + 1;
-            orderId = `ORD-${year}-${String(currentCounters.order).padStart(3, '0')}`;
+            counters.order = (counters.order || 0) + 1;
+            orderId = `ORD-${year}-${String(counters.order).padStart(3, '0')}`;
         }
-        localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(currentCounters));
+        localStorage.setItem(STORAGE_KEYS.COUNTERS, JSON.stringify(counters));
 
         const newOrder = {
             ...orderData,
@@ -253,5 +265,15 @@ export const storage = {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    },
+
+    factoryReset: () => {
+        // Explicitly remove known keys
+        Object.values(STORAGE_KEYS).forEach(key => {
+            localStorage.removeItem(key);
+        });
+        // Clear anything else
+        localStorage.clear();
+        return true;
     }
 };

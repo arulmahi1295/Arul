@@ -25,13 +25,18 @@ const Phlebotomy = () => {
     // Order Details State
     const [paymentMode, setPaymentMode] = useState('Cash');
     const [paymentStatus, setPaymentStatus] = useState('Paid');
-    const [advancePaid, setAdvancePaid] = useState(0); // New State
-    const [paymentRemarks, setPaymentRemarks] = useState(''); // New State
+    const [advancePaid, setAdvancePaid] = useState(0);
+    const [paymentRemarks, setPaymentRemarks] = useState('');
     const [discount, setDiscount] = useState(0);
     const [orderStatus, setOrderStatus] = useState('new'); // new, processing, completed
     const [processingMode, setProcessingMode] = useState('In-House');
     const [outsourceLab, setOutsourceLab] = useState('');
     const [patientHistory, setPatientHistory] = useState([]);
+
+    // Feature: Edit Existing Order
+    const [editingOrder, setEditingOrder] = useState(null);
+    const [lastOrder, setLastOrder] = useState(null);
+    const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
 
     const OUTSOURCE_PARTNERS = [
         'Lal PathLabs', 'Metropolis', 'Thyrocare', 'Redcliffe', 'Max Lab', 'Local Hospital Reference'
@@ -54,9 +59,30 @@ const Phlebotomy = () => {
 
     const tatInfo = calculateTAT(selectedTests);
 
-    // Initial Load - Check for Prefill
+    // Initial Load - Check for Prefill OR Edit
     useEffect(() => {
-        if (location.state?.prefillPatient) {
+        if (location.state?.editOrderId) {
+            // LOAD EXISTING ORDER FOR EDITING
+            const orders = storage.getOrders();
+            const orderToEdit = orders.find(o => o.id === location.state.editOrderId);
+            if (orderToEdit) {
+                setEditingOrder(orderToEdit);
+                setSelectedPatient({
+                    name: orderToEdit.patientName,
+                    id: orderToEdit.patientId
+                });
+                setPatientSearch(orderToEdit.patientName);
+                setSelectedTests(orderToEdit.tests || []);
+                setDiscount(orderToEdit.discount || 0);
+                setAdvancePaid(orderToEdit.advancePaid || 0);
+                setPaymentRemarks(orderToEdit.paymentRemarks || '');
+                setPaymentMode(orderToEdit.paymentMode || 'Cash');
+                setPaymentStatus(orderToEdit.paymentStatus || 'Paid');
+                setProcessingMode(orderToEdit.processingMode || 'In-House');
+                setOutsourceLab(orderToEdit.outsourceLab || '');
+            }
+        }
+        else if (location.state?.prefillPatient) {
             setSelectedPatient({
                 name: location.state.prefillPatient,
                 id: location.state.patientId
@@ -118,6 +144,8 @@ const Phlebotomy = () => {
         setSelectedTests(selectedTests.filter(t => t.id !== testId));
     };
 
+
+
     const calculateSubtotal = () => {
         return selectedTests.reduce((acc, curr) => acc + curr.price, 0);
     };
@@ -126,12 +154,32 @@ const Phlebotomy = () => {
         return Math.max(0, calculateSubtotal() - discount);
     };
 
+    // Smart Payment Logic: Sync Advance with Total when Paid
+    useEffect(() => {
+        if (paymentStatus === 'Paid') {
+            setAdvancePaid(calculateTotal());
+        }
+    }, [selectedTests, discount, paymentStatus]);
+
+    const handleAdvanceChange = (e) => {
+        const val = Math.max(0, parseInt(e.target.value) || 0);
+        setAdvancePaid(val);
+        // Auto-switch to Pending if amount < total
+        if (val < calculateTotal()) {
+            setPaymentStatus('Pending');
+        } else if (val >= calculateTotal() && val > 0) {
+            setPaymentStatus('Paid');
+        }
+    };
+
+
+
     const handleCreateOrder = () => {
         if (!selectedPatient || selectedTests.length === 0) return;
         setOrderStatus('processing');
 
         const orderData = {
-            id: `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`, // Simple ID generation
+            id: editingOrder ? editingOrder.id : `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
             patientId: selectedPatient.id,
             patientName: selectedPatient.name,
             tests: selectedTests,
@@ -141,15 +189,21 @@ const Phlebotomy = () => {
             advancePaid: advancePaid,
             balanceDue: calculateTotal() - advancePaid,
             paymentRemarks: paymentRemarks,
-            status: 'pending', // Initial status for tracking
+            status: editingOrder ? editingOrder.status : 'pending',
             paymentMode: paymentMode,
             paymentStatus: paymentStatus,
             processingMode: processingMode,
             outsourceLab: processingMode === 'Outsource' ? outsourceLab : null,
-            createdAt: new Date().toISOString()
+            createdAt: editingOrder ? editingOrder.createdAt : new Date().toISOString()
         };
 
-        storage.saveOrder(orderData);
+        if (editingOrder) {
+            storage.updateOrder(orderData.id, orderData);
+        } else {
+            storage.saveOrder(orderData);
+        }
+
+        setLastOrder(orderData);
 
         // Simulate processing persistence
         setTimeout(() => {
@@ -163,6 +217,11 @@ const Phlebotomy = () => {
         setPatientSearch('');
         setOrderStatus('new');
         setSearchTerm('');
+        setEditingOrder(null);
+        setDiscount(0);
+        setAdvancePaid(0);
+        setPaymentRemarks('');
+        setIsPaymentConfirmed(false);
         navigate('.', { replace: true, state: {} });
     };
 
@@ -173,16 +232,29 @@ const Phlebotomy = () => {
                     <div className="h-20 w-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                         <CheckCircle className="h-10 w-10 text-emerald-600" />
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Order Created Successfully!</h2>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2">
+                        {editingOrder ? 'Order Updated Successfully!' : 'Order Created Successfully!'}
+                    </h2>
                     <p className="text-slate-500 mb-8">
-                        Samples have been registered for <span className="font-semibold text-slate-700">{selectedPatient?.name}</span>.
+                        Records for <span className="font-semibold text-slate-700">{selectedPatient?.name}</span> have been saved.
                     </p>
                     <div className="space-y-3">
                         <button onClick={() => window.print()} className="w-full py-3 px-4 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-900 flex items-center justify-center transition-colors">
                             <Printer className="mr-2 h-5 w-5" /> Print Barcode Labels
                         </button>
+                        <button
+                            onClick={() => {
+                                if (lastOrder) {
+                                    sessionStorage.setItem('print_invoice_data', JSON.stringify(lastOrder));
+                                    window.open('/print/invoice', '_blank');
+                                }
+                            }}
+                            className="w-full py-3 px-4 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 flex items-center justify-center transition-colors"
+                        >
+                            <FileText className="mr-2 h-5 w-5" /> Download Receipt
+                        </button>
                         <button onClick={handleReset} className="w-full py-3 px-4 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors">
-                            Create New Order
+                            {editingOrder ? 'Back to New Order' : 'Create New Order'}
                         </button>
                     </div>
                 </div>
@@ -195,7 +267,7 @@ const Phlebotomy = () => {
             {/* Left Panel: Test Selection */}
             <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-4 border-b border-slate-100 bg-slate-50">
-                    <h2 className="text-lg font-bold text-slate-800 mb-4">Select Tests</h2>
+                    <h2 className="text-lg font-bold text-slate-800 mb-4">{editingOrder ? 'Edit Order: Select Tests' : 'Select Tests'}</h2>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                         <input
@@ -251,7 +323,7 @@ const Phlebotomy = () => {
             {/* Right Panel: Order Summary */}
             <div className="w-96 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-4 bg-slate-50 border-b border-slate-100">
-                    <h2 className="text-lg font-bold text-slate-800 mb-4">Requisition</h2>
+                    <h2 className="text-lg font-bold text-slate-800 mb-4">{editingOrder ? `Editing: ${editingOrder.id}` : 'Requisition'}</h2>
 
                     {/* Patient Selector */}
                     <div className="relative mb-4">
@@ -261,9 +333,11 @@ const Phlebotomy = () => {
                                     <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Patient</p>
                                     <p className="font-bold text-indigo-900">{selectedPatient.name}</p>
                                 </div>
-                                <button onClick={clearPatient} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600 transition-colors">
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
+                                {!editingOrder && ( // Disable clearing patient in Edit Mode to avoid accidental swap
+                                    <button onClick={clearPatient} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600 transition-colors">
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="relative">
@@ -395,11 +469,19 @@ const Phlebotomy = () => {
                                     <option value="Other">Other</option>
                                 </select>
                             </div>
+
+
                             <div className="flex-1">
                                 <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Status</label>
                                 <select
                                     value={paymentStatus}
-                                    onChange={(e) => setPaymentStatus(e.target.value)}
+                                    onChange={(e) => {
+                                        setPaymentStatus(e.target.value);
+                                        // Auto-fill Advance if Paid selected
+                                        if (e.target.value === 'Paid') {
+                                            setAdvancePaid(calculateTotal());
+                                        }
+                                    }}
                                     className={`w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm bg-white font-medium ${paymentStatus === 'Pending' ? 'text-amber-600' : 'text-emerald-600'}`}
                                 >
                                     <option value="Paid">Paid</option>
@@ -426,7 +508,7 @@ const Phlebotomy = () => {
                                     type="number"
                                     min="0"
                                     value={advancePaid}
-                                    onChange={(e) => setAdvancePaid(Math.max(0, parseInt(e.target.value) || 0))}
+                                    onChange={handleAdvanceChange}
                                     className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm bg-white"
                                     placeholder="0"
                                 />
@@ -434,13 +516,15 @@ const Phlebotomy = () => {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Payment Remarks / UTR No.</label>
+                            <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">
+                                {paymentMode === 'UPI' ? 'UTR Number / Reference ID' : 'Payment Remarks'}
+                            </label>
                             <input
                                 type="text"
                                 value={paymentRemarks}
                                 onChange={(e) => setPaymentRemarks(e.target.value)}
                                 className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm bg-white"
-                                placeholder="e.g. UTR: 1234567890 or Cash Ref..."
+                                placeholder={paymentMode === 'UPI' ? 'Enter UTR Number (Optional)' : 'e.g. Cash passed to account...'}
                             />
                         </div>
                     </div>
@@ -482,18 +566,42 @@ const Phlebotomy = () => {
                                 {advancePaid > 0 && <p className="text-xs text-rose-600 font-bold">Bal: ₹{Math.max(0, calculateTotal() - advancePaid)}</p>}
                             </div>
                         </div>
+
+                        {/* Payment Confirmation Checkbox */}
+                        <div className="mt-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={isPaymentConfirmed}
+                                    onChange={(e) => setIsPaymentConfirmed(e.target.checked)}
+                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm text-slate-700">
+                                    I confirm that I have received <strong>₹{advancePaid}</strong> via <strong>{paymentMode}</strong> and verified the transaction.
+                                </span>
+                            </label>
+                        </div>
                     </div>
+
                     <button
-                        disabled={!selectedPatient || selectedTests.length === 0}
-                        onClick={handleCreateOrder}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-200"
+                        disabled={!selectedPatient || selectedTests.length === 0 || !isPaymentConfirmed}
+                        onClick={() => {
+                            if (paymentStatus === 'Paid' && advancePaid < calculateTotal()) {
+                                alert("Error: Status cannot be 'Paid' if there is a Balance Due. Please change status to 'Pending' or collect full amount.");
+                                return;
+                            }
+                            handleCreateOrder();
+                        }}
+                        className={`w-full py-3 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg ${editingOrder ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
+                            }`}
                     >
-                        {orderStatus === 'processing' ? 'Processing...' : 'Create Order'}
+                        {orderStatus === 'processing' ? 'Processing...' : (editingOrder ? 'Update Order' : 'Create Order')}
                     </button>
                 </div>
             </div>
         </div>
     );
 };
+
 
 export default Phlebotomy;
