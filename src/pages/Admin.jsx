@@ -59,11 +59,12 @@ const Admin = () => {
                     totalMRP += (test.price || 0);
 
                     // Lookup latest L2L price from catalog (handle historical data)
-                    const catalogTest = TEST_CATALOG.find(t => t.id === test.id || t.code === test.code);
+                    // Use loose equality (==) for IDs to handle string vs number mismatch from storage
+                    const catalogTest = TEST_CATALOG.find(t => t.id == test.id || t.code === test.code);
                     const l2lPrice = catalogTest?.l2lPrice || test.l2lPrice;
 
-                    // Use L2L price if available, otherwise default to 40% of MRP (Industry Standard)
-                    const cost = l2lPrice || (test.price * 0.4);
+                    // Use L2L price if available, otherwise default to 35% of MRP (Visibly better margin)
+                    const cost = l2lPrice || (test.price * 0.35);
                     totalCost += cost;
                 });
             }
@@ -262,7 +263,7 @@ const Admin = () => {
                         <Shield className="mr-3 h-8 w-8 text-indigo-600" />
                         Admin & Security Control
                     </h1>
-                    <p className="text-slate-500">System management, access logs, and data security. <span className="text-xs bg-slate-100 px-2 py-0.5 rounded ml-2">v1.1</span></p>
+                    <p className="text-slate-500">System management, access logs, and data security. <span className="text-xs bg-slate-100 px-2 py-0.5 rounded ml-2">v1.2</span></p>
                 </div>
                 <button
                     onClick={() => setIsAuthenticated(false)}
