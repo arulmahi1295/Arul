@@ -173,15 +173,29 @@ const PrintButton = ({ order }) => {
             return;
         }
 
-        const [pid, pname] = order.patientId.includes(' - ') ? order.patientId.split(' - ') : [order.patientId, 'Unknown'];
+        // Robust Patient Name Logic
+        let pid = order.patientId;
+        let pname = order.patientName;
 
-        // Lookup patient details
+        // Legacy Support: Parse ID if it looks like "ID - Name"
+        if (!pname && order.patientId.includes(' - ')) {
+            const parts = order.patientId.split(' - ');
+            pid = parts[0];
+            pname = parts[1];
+        }
+
+        // Lookup patient details for Age/Gender
         const patients = storage.getPatients();
         const patient = patients.find(p => p.id === pid);
 
+        // Final Fallback for Name
+        if (!pname && patient) {
+            pname = patient.fullName;
+        }
+
         const reportPayload = {
             id: order.id,
-            patientName: pname,
+            patientName: pname || 'Unknown',
             patientId: pid,
             age: patient ? patient.age : 'NA',
             gender: patient ? patient.gender : 'NA',

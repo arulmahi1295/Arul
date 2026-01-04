@@ -62,8 +62,8 @@ const Admin = () => {
                     const catalogTest = TEST_CATALOG.find(t => t.id === test.id || t.code === test.code);
                     const l2lPrice = catalogTest?.l2lPrice || test.l2lPrice;
 
-                    // Use L2L price if available, otherwise default to 50% of MRP
-                    const cost = l2lPrice || (test.price * 0.5);
+                    // Use L2L price if available, otherwise default to 40% of MRP (Industry Standard)
+                    const cost = l2lPrice || (test.price * 0.4);
                     totalCost += cost;
                 });
             }
