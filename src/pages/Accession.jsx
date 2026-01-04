@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Filter, Search, Truck, Building2, CheckCircle, Clock, AlertCircle, Play, PackageCheck } from 'lucide-react';
+import { Filter, Search, Truck, Building2, CheckCircle, Clock, AlertCircle, Play, PackageCheck, FileDown } from 'lucide-react';
 import { storage } from '../data/storage';
 
 const Accession = () => {
@@ -78,14 +78,76 @@ const Accession = () => {
 
     const labPartners = ['In-House', 'Lal PathLabs', 'Thyrocare', 'Metropolis', 'Redcliffe'];
 
+    // Helper to calculate TAT
+    const getTATInfo = (order) => {
+        let maxHours = 12;
+        if (order.tests) {
+            order.tests.forEach(test => {
+                const cat = test.category ? test.category.toUpperCase() : '';
+                if (cat.includes('MICROBIOLOGY') || cat.includes('CULTURE')) maxHours = Math.max(maxHours, 48);
+                else if (cat.includes('IMMUNOLOGY') || cat.includes('SEROLOGY') || cat.includes('MOLECULAR')) maxHours = Math.max(maxHours, 24);
+            });
+        }
+        const created = new Date(order.createdAt);
+        const tatLimit = new Date(created.getTime() + maxHours * 60 * 60 * 1000);
+        const now = new Date();
+        const isOverdue = now > tatLimit && order.status !== 'completed';
+
+        return { tatLimit, isOverdue };
+    };
+
+    const handleDownloadTATReport = () => {
+        const headers = ['Order ID', 'Patient', 'Tests', 'Assigned Lab', 'Order Date', 'TAT Deadline', 'Status', 'Risk Level'];
+        const csvRows = [headers.join(',')];
+
+        const allOrders = storage.getOrders();
+        allOrders.forEach(order => {
+            const { tatLimit, isOverdue } = getTATInfo(order);
+            const status = isOverdue ? 'OVERDUE' : (order.status === 'completed' ? 'Completed' : 'On Time');
+            const tests = order.tests.map(t => t.name).join(' | ');
+            const labs = order.tests.map(t => t.labPartner || 'Pending').join(' | ');
+            const risk = isOverdue ? 'CRITICAL' : 'Normal';
+
+            const row = [
+                order.id,
+                `"${order.patientName || order.patientId}"`,
+                `"${tests}"`,
+                `"${labs}"`,
+                new Date(order.createdAt).toLocaleDateString(),
+                tatLimit.toLocaleString(),
+                status,
+                risk
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `TAT_Report_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="max-w-7xl mx-auto">
-            <header className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-                    <PackageCheck className="mr-3 h-8 w-8 text-indigo-600" />
-                    Central Accession & Outsourcing
-                </h1>
-                <p className="text-slate-500 mt-1">Receive samples, assign output labs, and track movements.</p>
+            <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center">
+                        <PackageCheck className="mr-3 h-8 w-8 text-indigo-600" />
+                        Central Accession & Outsourcing
+                    </h1>
+                    <p className="text-slate-500 mt-1">Receive samples, assign output labs, and track movements.</p>
+                </div>
+                <button
+                    onClick={handleDownloadTATReport}
+                    className="flex items-center bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Download TAT Report
+                </button>
             </header>
 
             {/* Tabs */}
@@ -158,7 +220,7 @@ const Accession = () => {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50/50 text-slate-500 text-xs uppercase font-semibold">
                             <tr>
-                                <th className="px-6 py-4">Order ID</th>
+                                <th className="px-6 py-4">Order ID & TAT</th>
                                 <th className="px-6 py-4">Patient</th>
                                 <th className="px-6 py-4">Tests</th>
                                 <th className="px-6 py-4">Assigned Lab</th>
@@ -171,64 +233,87 @@ const Accession = () => {
                                     <td colSpan="5" className="text-center py-12 text-slate-400">No orders found in this stage.</td>
                                 </tr>
                             ) : (
-                                displayedOrders.map(order => (
-                                    <tr key={order.id} className="hover:bg-brand-50/30 transition-colors">
-                                        <td className="px-6 py-4 font-mono font-medium text-slate-600">{order.id}</td>
-                                        <td className="px-6 py-4 font-medium text-slate-800">{order.patientId}</td>
-                                        <td className="px-6 py-4 text-sm text-slate-600">
-                                            {order.tests.map(t => t.name).join(', ')}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {activeTab === 'assignment' ? (
-                                                <div className="space-y-2">
-                                                    {order.tests.map((test, index) => (
-                                                        <div key={index} className="flex items-center justify-between gap-2 text-sm bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                                            <span className="font-medium text-slate-700 truncate max-w-[150px]" title={test.name}>{test.name}</span>
-                                                            <select
-                                                                className="px-2 py-1 rounded border border-slate-300 text-xs focus:border-brand-500 outline-none w-32"
-                                                                value={test.labPartner || ''}
-                                                                onChange={(e) => handleAssignLab(order.id, index, e.target.value)}
-                                                            >
-                                                                <option value="" disabled>Select Lab...</option>
-                                                                {labPartners.map(lab => (
-                                                                    <option key={lab} value={lab}>{lab}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                    ))}
+                                displayedOrders.map(order => {
+                                    const { tatLimit, isOverdue } = getTATInfo(order);
+
+                                    // Determine row styling
+                                    let rowClass = "hover:bg-brand-50/30 transition-colors";
+                                    if (isOverdue) rowClass = "bg-rose-50 hover:bg-rose-100/50 transition-colors border-l-4 border-rose-500";
+
+                                    return (
+                                        <tr key={order.id} className={rowClass}>
+                                            <td className="px-6 py-4">
+                                                <div className="font-mono font-medium text-slate-600">{order.id}</div>
+                                                <div className="text-xs mt-1 flex items-center gap-1">
+                                                    {isOverdue ? (
+                                                        <span className="flex items-center text-rose-600 font-bold bg-rose-100 px-1.5 py-0.5 rounded">
+                                                            <AlertCircle className="h-3 w-3 mr-1" />
+                                                            Overdue
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-400 flex items-center">
+                                                            <Clock className="h-3 w-3 mr-1" />
+                                                            Due: {tatLimit.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <div className="space-y-1">
-                                                    {order.tests.map((test, index) => (
-                                                        <div key={index} className="flex items-center gap-2 text-xs">
-                                                            <div className={`h-2 w-2 rounded-full ${test.labPartner === 'In-House' || !test.labPartner ? 'bg-brand-500' : 'bg-violet-500'}`}></div>
-                                                            <span className="text-slate-600 truncate max-w-[120px]">{test.name}</span>
-                                                            <span className="font-semibold text-slate-800 ml-auto">{test.labPartner || 'In-House'}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            {activeTab === 'reception' && (
-                                                <button
-                                                    onClick={() => handleReceiveSample(order.id)}
-                                                    className="btn-primary px-3 py-1.5 rounded-lg text-sm font-medium flex items-center ml-auto"
-                                                >
-                                                    <Truck className="h-4 w-4 mr-2" /> Receive Sample
-                                                </button>
-                                            )}
-                                            {activeTab === 'assignment' && (
-                                                <span className="text-xs text-slate-400 italic">Assign labs for all tests to proceed →</span>
-                                            )}
-                                            {activeTab === 'processing' && (
-                                                <span className="text-xs text-orange-500 font-medium flex items-center justify-end">
-                                                    <Clock className="h-3 w-3 mr-1" /> Processing
-                                                </span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-slate-800">{order.patientName || order.patientId}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">
+                                                {order.tests.map(t => t.name).join(', ')}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {activeTab === 'assignment' ? (
+                                                    <div className="space-y-2">
+                                                        {order.tests.map((test, index) => (
+                                                            <div key={index} className="flex items-center justify-between gap-2 text-sm bg-white/50 p-2 rounded-lg border border-slate-200">
+                                                                <span className="font-medium text-slate-700 truncate max-w-[150px]" title={test.name}>{test.name}</span>
+                                                                <select
+                                                                    className="px-2 py-1 rounded border border-slate-300 text-xs focus:border-brand-500 outline-none w-32 bg-white"
+                                                                    value={test.labPartner || ''}
+                                                                    onChange={(e) => handleAssignLab(order.id, index, e.target.value)}
+                                                                >
+                                                                    <option value="" disabled>Select Lab...</option>
+                                                                    {labPartners.map(lab => (
+                                                                        <option key={lab} value={lab}>{lab}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1">
+                                                        {order.tests.map((test, index) => (
+                                                            <div key={index} className="flex items-center gap-2 text-xs">
+                                                                <div className={`h-2 w-2 rounded-full ${test.labPartner === 'In-House' || !test.labPartner ? 'bg-brand-500' : 'bg-violet-500'}`}></div>
+                                                                <span className="text-slate-600 truncate max-w-[120px]">{test.name}</span>
+                                                                <span className="font-semibold text-slate-800 ml-auto">{test.labPartner || 'In-House'}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                {activeTab === 'reception' && (
+                                                    <button
+                                                        onClick={() => handleReceiveSample(order.id)}
+                                                        className="btn-primary px-3 py-1.5 rounded-lg text-sm font-medium flex items-center ml-auto"
+                                                    >
+                                                        <Truck className="h-4 w-4 mr-2" /> Receive Sample
+                                                    </button>
+                                                )}
+                                                {activeTab === 'assignment' && (
+                                                    <span className="text-xs text-slate-400 italic">Assign labs for all tests to proceed →</span>
+                                                )}
+                                                {activeTab === 'processing' && (
+                                                    <span className="text-xs text-orange-500 font-medium flex items-center justify-end">
+                                                        <Clock className="h-3 w-3 mr-1" /> Processing
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
