@@ -6,6 +6,7 @@ const Login = React.lazy(() => import('./pages/Login'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const PatientRegistration = React.lazy(() => import('./pages/PatientRegistration'));
 const Phlebotomy = React.lazy(() => import('./pages/Phlebotomy'));
+const BillingHistory = React.lazy(() => import('./pages/BillingHistory'));
 const Samples = React.lazy(() => import('./pages/Samples'));
 const Accession = React.lazy(() => import('./pages/Accession')); // New
 const Reports = React.lazy(() => import('./pages/Reports'));
@@ -66,6 +67,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="register" element={<PatientRegistration />} />
             <Route path="phlebotomy" element={<Phlebotomy />} />
+            <Route path="billing-history" element={<BillingHistory />} />
             <Route path="/samples" element={<Samples />} />
             <Route path="/accession" element={<Accession />} />
             <Route path="/reports" element={<Reports />} />
