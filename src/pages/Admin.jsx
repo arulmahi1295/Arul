@@ -262,7 +262,7 @@ const Admin = () => {
                         <Shield className="mr-3 h-8 w-8 text-indigo-600" />
                         Admin & Security Control
                     </h1>
-                    <p className="text-slate-500">System management, access logs, and data security.</p>
+                    <p className="text-slate-500">System management, access logs, and data security. <span className="text-xs bg-slate-100 px-2 py-0.5 rounded ml-2">v1.1</span></p>
                 </div>
                 <button
                     onClick={() => setIsAuthenticated(false)}
