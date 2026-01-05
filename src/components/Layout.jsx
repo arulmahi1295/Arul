@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, Beaker, FileText, Menu, X, Activity, DollarSign, Shield, LogOut, Car, History } from 'lucide-react';
+import { LayoutDashboard, UserPlus, Beaker, FileText, Menu, X, Activity, DollarSign, Shield, LogOut, Car, History, Leaf } from 'lucide-react';
 import { storage } from '../data/storage';
 
 const Layout = ({ onLogout }) => {
@@ -33,8 +33,10 @@ const Layout = ({ onLogout }) => {
             {/* Sidebar - Desktop */}
             <div className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 shadow-sm fixed h-full z-10">
                 <div className="p-6 border-b border-slate-100 flex flex-col items-center justify-center">
-                    <img src="/logo.png" alt="NovaPath Labs" className="h-16 w-auto mb-2 mix-blend-multiply" />
-                    <span className="text-xl font-bold text-slate-800 tracking-tight">NovaPath <span className="text-indigo-600">Labs</span></span>
+                    <div className="h-16 w-16 bg-brand-50 rounded-2xl flex items-center justify-center mb-3 group transition-transform hover:scale-110 duration-300">
+                        <Leaf className="h-10 w-10 text-brand-600" />
+                    </div>
+                    <span className="text-xl font-bold text-slate-800 tracking-tight">GreenHealth <span className="text-brand-600">Lab</span></span>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -80,8 +82,8 @@ const Layout = ({ onLogout }) => {
                 {/* Mobile Header */}
                 <div className="md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-20">
                     <div className="flex items-center">
-                        <img src="/logo.png" alt="Logo" className="h-8 w-auto mr-2 mix-blend-multiply" />
-                        <span className="text-lg font-bold text-slate-800">NovaPath Labs</span>
+                        <Leaf className="h-6 w-6 text-brand-600 mr-2" />
+                        <span className="text-lg font-bold text-slate-800">GreenHealth Lab</span>
                     </div>
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

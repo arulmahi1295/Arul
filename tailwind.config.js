@@ -8,17 +8,17 @@ export default {
         extend: {
             colors: {
                 brand: {
-                    50: '#ecfeff',
-                    100: '#cffafe',
-                    200: '#a5f3fc',
-                    300: '#67e8f9',
-                    400: '#22d3ee',
-                    500: '#06b6d4',
-                    600: '#0891b2',
-                    700: '#0e7490',
-                    800: '#155e75',
-                    900: '#164e63',
-                    950: '#083344',
+                    50: '#ecfdf5',
+                    100: '#d1fae5',
+                    200: '#a7f3d0',
+                    300: '#6ee7b7',
+                    400: '#34d399',
+                    500: '#10b981',
+                    600: '#059669',
+                    700: '#047857',
+                    800: '#065f46',
+                    900: '#064e3b',
+                    950: '#022c22',
                 },
                 accent: {
                     DEFAULT: '#8b5cf6', // Violet
@@ -26,7 +26,7 @@ export default {
                 }
             },
             backgroundImage: {
-                'brand-gradient': 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+                'brand-gradient': 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
                 'card-gradient': 'linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%)',
             }
         },
