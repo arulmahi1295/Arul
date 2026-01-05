@@ -72,7 +72,13 @@ const Layout = ({ onLogout }) => {
                                 <p className="text-[10px] text-slate-500">{user.role}</p>
                             </div>
                         </div>
-                        {/* Logout removed as per request */}
+                        <button
+                            onClick={onLogout}
+                            className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                            title="Logout"
+                        >
+                            <LogOut className="h-5 w-5" />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -113,6 +119,13 @@ const Layout = ({ onLogout }) => {
                                     {item.name}
                                 </Link>
                             ))}
+                            <button
+                                onClick={onLogout}
+                                className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            >
+                                <LogOut className="mr-3 h-5 w-5 text-slate-400 group-hover:text-red-500" />
+                                Logout
+                            </button>
                         </nav>
                     </div>
                 )}

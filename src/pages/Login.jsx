@@ -89,8 +89,18 @@ const Login = ({ onLogin }) => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+        <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+            {/* Background Image with Overlay */}
+            <div className="absolute inset-0 z-0">
+                <img
+                    src="/login_background.png"
+                    alt="Background"
+                    className="w-full h-full object-cover scale-105"
+                />
+                <div className="absolute inset-0 bg-emerald-900/40 backdrop-blur-[2px]"></div>
+            </div>
+
+            <div className="max-w-md w-full bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-white/20 relative z-10 animate-in fade-in zoom-in duration-500">
                 <div className="bg-brand-gradient p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full bg-white/10 opacity-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="relative z-10 flex flex-col items-center">
