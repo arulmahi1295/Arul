@@ -167,6 +167,7 @@ const BillingHistory = () => {
                     <table className="w-full text-left">
                         <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
                             <tr>
+                                <th className="px-6 py-4">S.No</th>
                                 <th className="px-6 py-4">Time</th>
                                 <th className="px-6 py-4">Order ID</th>
                                 <th className="px-6 py-4">Patient</th>
@@ -179,13 +180,16 @@ const BillingHistory = () => {
                         <tbody className="divide-y divide-slate-100">
                             {!filteredOrders || filteredOrders.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="text-center py-12 text-slate-400">
+                                    <td colSpan="8" className="text-center py-12 text-slate-400">
                                         No billing records found for {selectedDate}.
                                     </td>
                                 </tr>
                             ) : (
-                                filteredOrders.map((order) => (
+                                filteredOrders.map((order, index) => (
                                     <tr key={order.id || Math.random()} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-500">
+                                            {index + 1}
+                                        </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">
                                             {order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                                         </td>
@@ -194,8 +198,10 @@ const BillingHistory = () => {
                                             <p className="text-sm font-medium text-slate-800">{order.patientName}</p>
                                             <p className="text-xs text-slate-500">{order.patientId}</p>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600">
-                                            {order.tests?.length || 0} Tests
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm text-slate-600 max-w-[200px] truncate" title={order.tests?.map(t => t.name).join(', ')}>
+                                                {order.tests?.map(t => t.name).join(', ') || '-'}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex flex-col items-end">
