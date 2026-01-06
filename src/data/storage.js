@@ -5,7 +5,8 @@ const STORAGE_KEYS = {
     COUNTERS: 'lis_counters',
     USERS: 'lis_users',
     REFERRALS: 'lis_referrals',
-    HOME_COLLECTIONS: 'lis_home_collections'
+    HOME_COLLECTIONS: 'lis_home_collections',
+    SETTINGS: 'lis_settings'
 };
 
 // Helper to get data
@@ -275,5 +276,21 @@ export const storage = {
         // Clear anything else
         localStorage.clear();
         return true;
+    },
+
+    // Settings Methods (Signature, etc.)
+    getSettings: () => {
+        try {
+            const item = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+            return item ? JSON.parse(item) : {};
+        } catch (e) {
+            return {};
+        }
+    },
+    saveSettings: (settings) => {
+        const current = storage.getSettings();
+        const updated = { ...current, ...settings };
+        save(STORAGE_KEYS.SETTINGS, updated);
+        return updated;
     }
 };

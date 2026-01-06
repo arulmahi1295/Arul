@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Send, Eye, Search, AlertTriangle, PenTool, Lock } from 'lucide-react';
+import { FileText, Download, Send, Eye, Search, AlertTriangle, PenTool, Lock, MessageCircle } from 'lucide-react';
 import { storage } from '../data/storage';
 import { useDebounce } from '../hooks/useDebounce';
 import ResultEntryModal from '../components/ResultEntryModal';
@@ -20,18 +20,28 @@ const Reports = () => {
         const allOrders = storage.getOrders();
         // Sort by date desc
         allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // Enrich with Phone
+        const patients = storage.getPatients() || [];
+        const ptMap = patients.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+        allOrders.forEach(o => {
+            o.patientPhone = ptMap[o.patientId]?.phone || '';
+        });
+
         setOrders(allOrders);
     };
 
-    const handleSaveResult = (orderId, results) => {
-        // Update order with results and change status to completed
+    const handleSaveResult = (orderId, results, isFinalized) => {
+        // Update order with results and change status based on finalization
+        const status = isFinalized ? 'completed' : 'pending';
+
         const updatedOrder = storage.updateOrder(orderId, {
             results: results,
-            status: 'completed',
-            completedAt: new Date().toISOString()
+            status: status,
+            completedAt: isFinalized ? new Date().toISOString() : null
         });
 
-        console.log('Report Generated:', updatedOrder);
+        console.log('Report Update:', updatedOrder);
         setSelectedOrder(null);
         loadOrders(); // Refresh list
     };
@@ -130,6 +140,20 @@ const Reports = () => {
                                         ) : (
                                             <>
                                                 <button
+                                                    onClick={() => {
+                                                        if (!order.patientPhone) {
+                                                            alert('Patient phone number not found!');
+                                                            return;
+                                                        }
+                                                        const text = `Dear ${order.patientName}, Please find your test report attached. Tests: ${order.tests?.map(t => t.name).join(', ')}. GreenHealth Lab.`;
+                                                        window.open(`https://wa.me/91${order.patientPhone}?text=${encodeURIComponent(text)}`, '_blank');
+                                                    }}
+                                                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors mr-2"
+                                                    title="Share on WhatsApp"
+                                                >
+                                                    <MessageCircle className="h-4 w-4" />
+                                                </button>
+                                                <button
                                                     onClick={() => setSelectedOrder(order)}
                                                     className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors mr-2"
                                                     title="Edit Results"
@@ -204,6 +228,8 @@ const PrintButton = ({ order }) => {
             age: patient ? patient.age : 'NA',
             gender: patient ? patient.gender : 'NA',
             date: order.completedAt || new Date().toISOString(),
+            billingDate: order.createdAt,
+            sampleDate: order.collectedAt || order.createdAt,
             tests: order.results || []
         };
 

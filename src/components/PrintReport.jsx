@@ -1,10 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Letterhead from './Letterhead';
+import { storage } from '../data/storage';
 
 const PrintReport = () => {
     const location = useLocation();
     const [reportData, setReportData] = useState(null);
+    const [signature, setSignature] = useState(null);
+
+    useEffect(() => {
+        const settings = storage.getSettings();
+        if (settings.signature) {
+            setSignature(settings.signature);
+        }
+    }, []);
 
     useEffect(() => {
         // Check location state first
@@ -57,20 +66,36 @@ const PrintReport = () => {
             <div className="border border-slate-200 rounded-lg p-4 mb-8 bg-slate-50 print:bg-transparent print:border-slate-300">
                 <div className="grid grid-cols-2 gap-y-2 text-sm">
                     <div className="flex">
-                        <span className="w-24 text-slate-500 font-medium">Patient:</span>
+                        <span className="w-28 text-slate-500 font-medium">Patient:</span>
                         <span className="font-bold">{reportData.patientName}</span>
                     </div>
                     <div className="flex">
-                        <span className="w-24 text-slate-500 font-medium">Patient ID:</span>
-                        <span className="font-semibold">{reportData.patientId}</span>
+                        <span className="w-28 text-slate-500 font-medium">Billing Date:</span>
+                        <span className="font-semibold">{reportData.billingDate ? new Date(reportData.billingDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}</span>
                     </div>
                     <div className="flex">
-                        <span className="w-24 text-slate-500 font-medium">Age/Gender:</span>
+                        <span className="w-28 text-slate-500 font-medium">Age/Gender:</span>
                         <span>{reportData.age} Y / {reportData.gender}</span>
                     </div>
                     <div className="flex">
-                        <span className="w-24 text-slate-500 font-medium">Ref. Doc:</span>
+                        <span className="w-28 text-slate-500 font-medium">Sample Date:</span>
+                        <span className="font-semibold">{reportData.sampleDate ? new Date(reportData.sampleDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}</span>
+                    </div>
+                    <div className="flex">
+                        <span className="w-28 text-slate-500 font-medium">Patient ID:</span>
+                        <span className="font-semibold">{reportData.patientId}</span>
+                    </div>
+                    <div className="flex">
+                        <span className="w-28 text-slate-500 font-medium">Reported Date:</span>
+                        <span className="font-semibold">{reportData.date ? new Date(reportData.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}</span>
+                    </div>
+                    <div className="flex">
+                        <span className="w-28 text-slate-500 font-medium">Ref. Doc:</span>
                         <span>Dr. Anjali Sharma, MD</span>
+                    </div>
+                    <div className="flex">
+                        <span className="w-28 text-slate-500 font-medium">Printed Date:</span>
+                        <span>{new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
                     </div>
                 </div>
             </div>
@@ -144,24 +169,30 @@ const PrintReport = () => {
             </div>
 
             {/* Footer / Disclaimer */}
-            <footer className="mt-auto pt-8 border-t-2 border-slate-100 text-[10px] text-slate-500 text-justify leading-tight print:fixed print:bottom-8 print:left-8 print:right-8">
-                <p className="mb-2 font-bold">End of Report</p>
-                <p>
-                    ** Interpretation: Results should be clinically correlated with the patient's history and other diagnostic findings.
-                    Please consult your doctor for proper diagnosis and treatment.
-                    Samples are processed using standard operating procedures.
-                    This report is electronically generated and verified.
-                </p>
-                <div className="mt-8 flex justify-end items-end">
+            <footer className="mt-auto border-t-2 border-slate-100 pt-4 print:fixed print:bottom-0 print:left-8 print:right-8 print:bg-white">
+                <div className="flex justify-end items-end mb-4">
                     <div className="text-center">
                         <div className="h-12 w-32 mb-2 border-b border-dashed border-slate-300"></div>
-                        <p className="font-bold text-slate-800">Lab Technician</p>
+                        <p className="font-bold text-xs text-slate-800">Lab Technician</p>
                     </div>
-                    <div className="text-center ml-12">
+                    <div className="text-center ml-12 relative">
+                        {signature && (
+                            <img
+                                src={signature}
+                                alt="Signature"
+                                className="absolute bottom-8 left-1/2 -translate-x-1/2 h-12 object-contain mix-blend-multiply opacity-90"
+                            />
+                        )}
                         <div className="h-12 w-32 mb-2 border-b border-dashed border-slate-300"></div>
-                        <p className="font-bold text-slate-800">Pathologist</p>
+                        <p className="font-bold text-xs text-slate-800">Pathologist</p>
                     </div>
                 </div>
+
+                <p className="text-[10px] text-slate-400 text-center leading-tight">
+                    ** Interpretation: Results should be clinically correlated with the patient's history and other diagnostic findings.
+                    Please consult your doctor for proper diagnosis and treatment.
+                    This report is electronically generated and verified.
+                </p>
             </footer>
         </div>
     );

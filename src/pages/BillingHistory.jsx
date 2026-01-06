@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../data/storage';
 // SAFE ICONS ONLY (From Finance.jsx)
-import { Calendar, Search, Edit2, Download, FileText, DollarSign, CreditCard } from 'lucide-react';
+import { Calendar, Search, Edit2, Download, FileText, DollarSign, CreditCard, MessageCircle } from 'lucide-react';
 
 const BillingHistory = () => {
     console.log("BillingHistory: Component rendering...");
@@ -50,6 +50,14 @@ const BillingHistory = () => {
 
             // Sort by newest first
             dailyOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            // Map Phone Numbers
+            const pts = storage.getPatients() || [];
+            const ptMap = pts.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+
+            dailyOrders.forEach(o => {
+                o.patientPhone = ptMap[o.patientId]?.phone || '';
+            });
 
             setOrders(dailyOrders);
             setFilteredOrders(dailyOrders);
@@ -219,6 +227,20 @@ const BillingHistory = () => {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        if (!order.patientPhone) {
+                                                            alert('Patient phone number not found!');
+                                                            return;
+                                                        }
+                                                        const text = `Dear ${order.patientName}, Please find your invoice attached. Total Amount: ₹${order.totalAmount}. ${order.balanceDue > 0 ? `Balance Due: ₹${order.balanceDue}.` : 'Status: Paid.'} Thank you, GreenHealth Lab.`;
+                                                        window.open(`https://wa.me/91${order.patientPhone}?text=${encodeURIComponent(text)}`, '_blank');
+                                                    }}
+                                                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                                    title="Send via WhatsApp"
+                                                >
+                                                    <MessageCircle className="h-4 w-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => handlePrintInvoice(order)}
                                                     className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
