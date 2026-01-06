@@ -1,11 +1,14 @@
 import React from 'react';
-import { MapPin, Phone, FileText } from 'lucide-react';
+import { MapPin, Phone, FileText, Leaf } from 'lucide-react';
 
 const Letterhead = ({ title, subtitle, meta }) => {
     return (
         <header className="border-b border-slate-200 pb-6 mb-8 flex justify-between items-start">
             <div>
-                <h1 className="text-3xl font-bold text-emerald-700 mb-2">GreenHealth Lab</h1>
+                <div className="flex items-center gap-2 mb-2">
+                    <Leaf className="h-8 w-8 text-emerald-600" />
+                    <h1 className="text-3xl font-bold text-emerald-700">GreenHealth Lab</h1>
+                </div>
                 <div className="text-sm text-slate-500 space-y-1">
                     <p className="flex items-center"><MapPin className="h-4 w-4 mr-2" /> 123 Health Avenue, Medical District</p>
                     <p className="flex items-center"><Phone className="h-4 w-4 mr-2" /> +1 (555) 123-4567</p>

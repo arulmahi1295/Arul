@@ -130,10 +130,14 @@ const Reports = () => {
                                         ) : (
                                             <>
                                                 <button
+                                                    onClick={() => setSelectedOrder(order)}
+                                                    className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors mr-2"
+                                                    title="Edit Results"
+                                                >
+                                                    <PenTool className="h-4 w-4" />
+                                                </button>
+                                                <button
                                                     onClick={() => window.open('/print/report', '_blank')}
-                                                    // Note: We need to update PrintReport to check for data correctly or pass via state logic if possible (see earlier discussion).
-                                                    // Better yet, update handlePrint to navigate properly.
-                                                    // For now, let's use a specialized handler.
                                                     className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors hidden"
                                                     title="View"
                                                 >
