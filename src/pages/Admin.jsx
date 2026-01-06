@@ -64,7 +64,7 @@ const Admin = () => {
                     const l2lPrice = catalogTest?.l2lPrice || test.l2lPrice;
 
                     // Use L2L price if available, otherwise default to 35% of MRP (Visibly better margin)
-                    const cost = l2lPrice || (test.price * 0.35);
+                    const cost = l2lPrice || ((test.price || 0) * 0.35);
                     totalCost += cost;
                 });
             }
