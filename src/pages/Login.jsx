@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Beaker, ArrowRight, User, ShieldCheck, Leaf, Activity, Heart, Droplet, Brain } from 'lucide-react';
+import { Beaker, ArrowRight, User, ShieldCheck, Leaf, Activity, Heart, Droplet, Brain, Lock } from 'lucide-react';
 import { storage } from '../data/storage';
 
 const Login = ({ onLogin }) => {
     const navigate = useNavigate();
     const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [activeTestIndex, setActiveTestIndex] = useState(0);
@@ -48,59 +49,39 @@ const Login = ({ onLogin }) => {
         setTimeout(() => {
             const users = storage.getUsers();
             let foundUser = null;
-            let userToLogin = null;
 
+            // Strict Search: Match both username (case-insensitive) AND password (case-sensitive)
             if (username.trim()) {
-                foundUser = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-                if (!foundUser) {
-                    userToLogin = {
-                        name: username,
-                        role: 'Staff',
-                        token: 'temp-' + Date.now(),
-                        status: 'Active'
-                    };
-                }
-            } else {
-                foundUser = users.find(u => u.username.toLowerCase() === 'admin');
-                if (!foundUser) {
-                    userToLogin = { name: 'Admin', role: 'Admin', token: 'admin-' + Date.now(), status: 'Active' };
-                }
+                foundUser = users.find(u =>
+                    u.username.toLowerCase() === username.trim().toLowerCase() &&
+                    u.password === password
+                );
             }
 
             if (foundUser) {
                 if (foundUser.status === 'Inactive') {
-                    setError('Account is inactive.');
+                    setError('Account Validation Failed: User is inactive.');
                     setIsLoading(false);
                     return;
                 }
-                userToLogin = {
-                    name: foundUser.username,
+
+                const sessionData = {
+                    user: foundUser.username,
                     role: foundUser.role,
                     token: 'token-' + Date.now(),
                     department: foundUser.department,
                     id: foundUser.id,
                     status: foundUser.status
                 };
-            }
 
-            if (!userToLogin) {
-                setError('Login failed.');
+                localStorage.setItem('lis_auth', JSON.stringify(sessionData));
+                onLogin(sessionData);
+                navigate('/');
+            } else {
+                setError('Authentication Failed: Invalid credentials.');
                 setIsLoading(false);
-                return;
             }
-
-            const sessionData = {
-                user: userToLogin.name,
-                role: userToLogin.role,
-                token: userToLogin.token,
-                department: userToLogin.department,
-                id: userToLogin.id
-            };
-
-            localStorage.setItem('lis_auth', JSON.stringify(sessionData));
-            onLogin(sessionData);
-            navigate('/');
-        }, 600);
+        }, 800);
     };
 
     return (
@@ -192,9 +173,25 @@ const Login = ({ onLogin }) => {
                                     <input
                                         type="text"
                                         className="w-full pl-14 pr-4 py-4 rounded-xl border border-slate-200/60 bg-white/50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none text-slate-700 transition-all font-semibold placeholder:text-slate-400"
-                                        placeholder="Admin"
+                                        placeholder="Username"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+                                <div className="relative group">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 bg-white rounded-lg shadow-sm border border-slate-100">
+                                        <Lock className="h-4 w-4 text-emerald-600" />
+                                    </div>
+                                    <input
+                                        type="password"
+                                        className="w-full pl-14 pr-4 py-4 rounded-xl border border-slate-200/60 bg-white/50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none text-slate-700 transition-all font-semibold placeholder:text-slate-400"
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
                                     />
                                 </div>
                             </div>
