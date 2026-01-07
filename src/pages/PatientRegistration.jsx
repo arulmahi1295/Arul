@@ -8,6 +8,7 @@ const PatientRegistration = () => {
     const [formData, setFormData] = useState({
         fullName: '',
         age: '',
+        dob: '', // Added DOB field
         gender: 'male',
         phone: '',
         email: '',
@@ -36,6 +37,15 @@ const PatientRegistration = () => {
 
         const ageNum = parseInt(formData.age);
         if (!ageNum || ageNum <= 0 || ageNum > 120) newErrors.age = 'Invalid age (1-120)';
+
+        // DOB Validation
+        if (formData.dob) {
+            const selectedDate = new Date(formData.dob);
+            const today = new Date();
+            if (selectedDate > today) {
+                newErrors.dob = 'Date of Birth cannot be in the future';
+            }
+        }
 
         if (!/^\d{10}$/.test(formData.phone)) newErrors.phone = 'Phone must be 10 digits';
 
@@ -72,7 +82,41 @@ const PatientRegistration = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+
+        // Special handling for Age/DOB Sync
+        if (name === 'dob') {
+            const dobDate = new Date(value);
+            const today = new Date();
+            if (!isNaN(dobDate.getTime())) {
+                let calculatedAge = today.getFullYear() - dobDate.getFullYear();
+                const m = today.getMonth() - dobDate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) {
+                    calculatedAge--;
+                }
+                // Only update age if logical
+                if (calculatedAge >= 0) {
+                    setFormData(prev => ({ ...prev, dob: value, age: calculatedAge.toString() }));
+                } else {
+                    setFormData(prev => ({ ...prev, [name]: value }));
+                }
+            } else {
+                setFormData(prev => ({ ...prev, [name]: value }));
+            }
+        } else if (name === 'age') {
+            // Estimate DOB based on Age (Default to Jan 1st of calculated year)
+            const ageNum = parseInt(value);
+            if (!isNaN(ageNum) && ageNum > 0 && ageNum <= 120) {
+                const today = new Date();
+                const estimatedYear = today.getFullYear() - ageNum;
+                // Format as YYYY-MM-DD
+                const estimatedDob = `${estimatedYear}-01-01`;
+                setFormData(prev => ({ ...prev, age: value, dob: estimatedDob }));
+            } else {
+                setFormData(prev => ({ ...prev, [name]: value }));
+            }
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     return (
@@ -114,7 +158,21 @@ const PatientRegistration = () => {
                                 {errors.fullName && <p className="text-xs text-rose-500 mt-1 ml-1">{errors.fullName}</p>}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                                    <div className="relative">
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                        <input
+                                            type="date"
+                                            name="dob"
+                                            value={formData.dob}
+                                            onChange={handleChange}
+                                            className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.dob ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'} outline-none transition-all`}
+                                        />
+                                    </div>
+                                    {errors.dob && <p className="text-xs text-rose-500 mt-1 ml-1">{errors.dob}</p>}
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
                                     <input
@@ -319,7 +377,7 @@ const PatientRegistration = () => {
                         type="button"
                         className="mr-3 px-6 py-2.5 text-sm font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
                         onClick={() => setFormData({
-                            fullName: '', age: '', gender: 'male', phone: '', email: '', address: '',
+                            fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '',
                             bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash',
                             source: 'Walk-in', referralId: ''
                         })}
@@ -378,7 +436,7 @@ const PatientRegistration = () => {
                                     setIsSubmitted(false);
                                     setSavedPatientId(null);
                                     setFormData({
-                                        fullName: '', age: '', gender: 'male', phone: '', email: '', address: '',
+                                        fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '',
                                         bloodGroup: '', medicalConditions: '', medications: '', allergies: '',
                                         source: 'Walk-in', referralId: ''
                                     });
