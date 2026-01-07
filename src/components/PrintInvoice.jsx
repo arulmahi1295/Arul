@@ -10,28 +10,31 @@ const PrintInvoice = () => {
     const [patient, setPatient] = useState(null);
 
     useEffect(() => {
-        let printOrder = null;
-        if (location.state && location.state.order) {
-            printOrder = location.state.order;
-        } else {
-            // Fallback to session storage
-            const stored = sessionStorage.getItem('print_invoice_data');
-            if (stored) {
-                printOrder = JSON.parse(stored);
+        const loadInvoiceData = async () => {
+            let printOrder = null;
+            if (location.state && location.state.order) {
+                printOrder = location.state.order;
+            } else {
+                // Fallback to session storage
+                const stored = sessionStorage.getItem('print_invoice_data');
+                if (stored) {
+                    printOrder = JSON.parse(stored);
+                }
             }
-        }
 
-        if (printOrder) {
-            setOrder(printOrder);
-            // Fetch full patient details if available
-            if (printOrder.patientId) {
-                // Extract clean ID if it's in "ID - Name" format
-                const rawId = printOrder.patientId.split(' - ')[0];
-                const patients = storage.getPatients();
-                const foundPatient = patients.find(p => p.id === rawId);
-                setPatient(foundPatient);
+            if (printOrder) {
+                setOrder(printOrder);
+                // Fetch full patient details if available
+                if (printOrder.patientId) {
+                    // Extract clean ID if it's in "ID - Name" format
+                    const rawId = printOrder.patientId.split(' - ')[0];
+                    const patients = (await storage.getPatients()) || [];
+                    const foundPatient = patients.find(p => p.id === rawId);
+                    setPatient(foundPatient);
+                }
             }
-        }
+        };
+        loadInvoiceData();
     }, [location.state]);
 
     useEffect(() => {

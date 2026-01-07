@@ -16,13 +16,13 @@ const Reports = () => {
         loadOrders();
     }, []);
 
-    const loadOrders = () => {
-        const allOrders = storage.getOrders();
+    const loadOrders = async () => {
+        const allOrders = await storage.getOrders();
         // Sort by date desc
         allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         // Enrich with Phone
-        const patients = storage.getPatients() || [];
+        const patients = await storage.getPatients() || [];
         const ptMap = patients.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
         allOrders.forEach(o => {
             o.patientPhone = ptMap[o.patientId]?.phone || '';
@@ -31,11 +31,11 @@ const Reports = () => {
         setOrders(allOrders);
     };
 
-    const handleSaveResult = (orderId, results, isFinalized) => {
+    const handleSaveResult = async (orderId, results, isFinalized) => {
         // Update order with results and change status based on finalization
         const status = isFinalized ? 'completed' : 'pending';
 
-        const updatedOrder = storage.updateOrder(orderId, {
+        const updatedOrder = await storage.updateOrder(orderId, {
             results: results,
             status: status,
             completedAt: isFinalized ? new Date().toISOString() : null
@@ -195,7 +195,7 @@ const PrintButton = ({ order }) => {
     // Locked if: Payment Status is Pending OR (Balance Due exists and is > 0)
     const isLocked = order.paymentStatus === 'Pending' || (order.balanceDue && order.balanceDue > 0);
 
-    const handleClick = () => {
+    const handleClick = async () => {
         if (isLocked) {
             alert(`Cannot download report. Balance Pending: ₹${order.balanceDue || order.totalAmount}`);
             return;
@@ -213,7 +213,7 @@ const PrintButton = ({ order }) => {
         }
 
         // Lookup patient details for Age/Gender
-        const patients = storage.getPatients();
+        const patients = await storage.getPatients();
         const patient = patients.find(p => p.id === pid);
 
         // Final Fallback for Name

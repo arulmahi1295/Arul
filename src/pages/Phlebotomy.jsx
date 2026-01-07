@@ -61,60 +61,69 @@ const Phlebotomy = () => {
 
     // Initial Load - Check for Prefill OR Edit
     useEffect(() => {
-        if (location.state?.editOrderId) {
-            // LOAD EXISTING ORDER FOR EDITING
-            const orders = storage.getOrders();
-            const orderToEdit = orders.find(o => o.id === location.state.editOrderId);
-            if (orderToEdit) {
-                setEditingOrder(orderToEdit);
-                setSelectedPatient({
-                    name: orderToEdit.patientName,
-                    id: orderToEdit.patientId
-                });
-                setPatientSearch(orderToEdit.patientName);
-                setSelectedTests(orderToEdit.tests || []);
-                setDiscount(orderToEdit.discount || 0);
-                setAdvancePaid(orderToEdit.advancePaid || 0);
-                setPaymentRemarks(orderToEdit.paymentRemarks || '');
-                setPaymentMode(orderToEdit.paymentMode || 'Cash');
-                setPaymentStatus(orderToEdit.paymentStatus || 'Paid');
-                setProcessingMode(orderToEdit.processingMode || 'In-House');
-                setOutsourceLab(orderToEdit.outsourceLab || '');
+        const loadInitialData = async () => {
+            if (location.state?.editOrderId) {
+                // LOAD EXISTING ORDER FOR EDITING
+                const orders = await storage.getOrders();
+                const orderToEdit = orders.find(o => o.id === location.state.editOrderId);
+                if (orderToEdit) {
+                    setEditingOrder(orderToEdit);
+                    setSelectedPatient({
+                        name: orderToEdit.patientName,
+                        id: orderToEdit.patientId
+                    });
+                    setPatientSearch(orderToEdit.patientName);
+                    setSelectedTests(orderToEdit.tests || []);
+                    setDiscount(orderToEdit.discount || 0);
+                    setAdvancePaid(orderToEdit.advancePaid || 0);
+                    setPaymentRemarks(orderToEdit.paymentRemarks || '');
+                    setPaymentMode(orderToEdit.paymentMode || 'Cash');
+                    setPaymentStatus(orderToEdit.paymentStatus || 'Paid');
+                    setProcessingMode(orderToEdit.processingMode || 'In-House');
+                    setOutsourceLab(orderToEdit.outsourceLab || '');
+                }
             }
-        }
-        else if (location.state?.prefillPatient) {
-            setSelectedPatient({
-                name: location.state.prefillPatient,
-                id: location.state.patientId
-            });
-            setPatientSearch(location.state.prefillPatient);
-            if (location.state.paymentMode) setPaymentMode(location.state.paymentMode);
-        }
+            else if (location.state?.prefillPatient) {
+                setSelectedPatient({
+                    name: location.state.prefillPatient,
+                    id: location.state.patientId
+                });
+                setPatientSearch(location.state.prefillPatient);
+                if (location.state.paymentMode) setPaymentMode(location.state.paymentMode);
+            }
+        };
+        loadInitialData();
     }, [location.state]);
 
     // Search Patients
     useEffect(() => {
-        if (debouncedPatientSearch && !selectedPatient) {
-            const results = storage.searchPatients(debouncedPatientSearch);
-            setPatientSearchResults(results);
-            setShowPatientResults(true);
-        } else {
-            setPatientSearchResults([]);
-            setShowPatientResults(false);
-        }
+        const performSearch = async () => {
+            if (debouncedPatientSearch && !selectedPatient) {
+                const results = await storage.searchPatients(debouncedPatientSearch);
+                setPatientSearchResults(results);
+                setShowPatientResults(true);
+            } else {
+                setPatientSearchResults([]);
+                setShowPatientResults(false);
+            }
+        };
+        performSearch();
     }, [debouncedPatientSearch, selectedPatient]);
 
     // Load History when patient selected
     useEffect(() => {
-        if (selectedPatient?.id) {
-            const allOrders = storage.getOrders();
-            const history = allOrders
-                .filter(o => o.patientId === selectedPatient.id)
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            setPatientHistory(history);
-        } else {
-            setPatientHistory([]);
-        }
+        const loadHistory = async () => {
+            if (selectedPatient?.id) {
+                const allOrders = await storage.getOrders();
+                const history = allOrders
+                    .filter(o => o.patientId === selectedPatient.id)
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                setPatientHistory(history);
+            } else {
+                setPatientHistory([]);
+            }
+        };
+        loadHistory();
     }, [selectedPatient]);
 
     const selectPatient = (patient) => {
@@ -174,7 +183,7 @@ const Phlebotomy = () => {
 
 
 
-    const handleCreateOrder = () => {
+    const handleCreateOrder = async () => {
         if (!selectedPatient || selectedTests.length === 0) return;
         setOrderStatus('processing');
 
@@ -198,9 +207,9 @@ const Phlebotomy = () => {
         };
 
         if (editingOrder) {
-            storage.updateOrder(orderData.id, orderData);
+            await storage.updateOrder(orderData.id, orderData);
         } else {
-            storage.saveOrder(orderData);
+            await storage.saveOrder(orderData);
         }
 
         setLastOrder(orderData);

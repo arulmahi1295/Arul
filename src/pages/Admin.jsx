@@ -512,25 +512,25 @@ const Admin = () => {
         }
     }, [isAuthenticated]);
 
-    const loadAllData = () => {
-        const patients = storage.getPatients();
-        const orders = storage.getOrders();
-        const users = storage.getUsers();
-        const referrals = storage.getReferrals();
-        const settings = storage.getSettings();
+    const loadAllData = async () => {
+        const patients = await storage.getPatients();
+        const orders = await storage.getOrders();
+        const users = await storage.getUsers();
+        const referrals = await storage.getReferrals();
+        const settings = await storage.getSettings();
 
         // Stats Logic
         const storageSize = JSON.stringify(patients).length + JSON.stringify(orders).length;
         let totalRevenue = 0, totalMRP = 0, totalCost = 0;
 
         orders.forEach(order => {
-            totalRevenue += (order.totalAmount || 0);
+            totalRevenue += (Number(order.totalAmount) || 0);
             if (order.tests) {
                 order.tests.forEach(test => {
-                    totalMRP += (test.price || 0);
+                    totalMRP += (Number(test.price) || 0);
                     const catalogTest = TEST_CATALOG.find(t => t.id == test.id || t.code === test.code);
                     const l2lPrice = catalogTest?.l2lPrice || test.l2lPrice;
-                    const cost = l2lPrice || ((test.price || 0) * 0.40); // 40% fallback
+                    const cost = l2lPrice || ((Number(test.price) || 0) * 0.40); // 40% fallback
                     totalCost += cost;
                 });
             }
@@ -545,11 +545,13 @@ const Admin = () => {
         }));
         const orderLogs = orders.map(o => ({
             type: 'ORDER_CREATION',
-            desc: `Order created: ${o.id} - ${o.tests.length} tests`,
+            desc: `Order created: ${o.id} - ${o.tests ? o.tests.length : 0} tests`,
             time: o.createdAt,
             user: 'Phlebotomist'
         }));
-        const allLogs = [...patientLogs, ...orderLogs].sort((a, b) => new Date(b.time) - new Date(a.time));
+
+        // Safety check for invalid dates before kind
+        const allLogs = [...patientLogs, ...orderLogs].sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0));
 
         setData({
             stats: {
@@ -565,7 +567,7 @@ const Admin = () => {
             logs: allLogs,
             users,
             referrals,
-            signature: settings.signature
+            signature: settings?.signature
         });
     };
 
@@ -582,30 +584,30 @@ const Admin = () => {
 
     // --- Action Handlers ---
 
-    const handleUserSave = (userData, isEditing) => {
+    const handleUserSave = async (userData, isEditing) => {
         if (isEditing && userData.id) {
-            storage.updateUser(userData.id, userData);
+            await storage.updateUser(userData.id, userData);
         } else {
-            storage.saveUser(userData);
+            await storage.saveUser(userData);
         }
         loadAllData();
     };
 
-    const handleUserDelete = (id) => {
+    const handleUserDelete = async (id) => {
         if (confirm('Remove this user access?')) {
-            storage.deleteUser(id);
+            await storage.deleteUser(id);
             loadAllData();
         }
     };
 
-    const handleReferralSave = (refData) => {
-        storage.saveReferral(refData);
+    const handleReferralSave = async (refData) => {
+        await storage.saveReferral(refData);
         loadAllData();
     };
 
-    const handleReferralDelete = (id) => {
+    const handleReferralDelete = async (id) => {
         if (confirm('Delete this referral?')) {
-            storage.deleteReferral(id);
+            await storage.deleteReferral(id);
             loadAllData();
         }
     };
@@ -614,48 +616,104 @@ const Admin = () => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
             const base64 = reader.result;
-            storage.saveSettings({ signature: base64 });
+            await storage.saveSettings({ signature: base64 });
             loadAllData();
             alert('Signature uploaded!');
         };
         reader.readAsDataURL(file);
     };
 
-    const handleDeleteSignature = () => {
-        storage.saveSettings({ signature: null });
+    const handleDeleteSignature = async () => {
+        await storage.saveSettings({ signature: null });
         loadAllData();
     };
 
-    const handleExport = () => storage.exportBackup();
+    // Export/Import Temporarily Disabled for Async Migration
+    const handleExport = async () => {
+        try {
+            const patients = await storage.getPatients();
+            const orders = await storage.getOrders();
+            const users = await storage.getUsers();
+            const referrals = await storage.getReferrals();
+            const settings = await storage.getSettings();
+
+            const backup = {
+                version: "2.0", // Async version
+                date: new Date().toISOString(),
+                patients,
+                orders,
+                users,
+                referrals,
+                settings
+            };
+
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `LIMS_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error("Export failed:", e);
+            alert("Export failed. See console.");
+        }
+    };
 
     const handleImport = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (ev) => {
+        reader.onload = async (ev) => {
             try {
                 const backup = JSON.parse(ev.target.result);
-                if (confirm('Restore backup? Current data will be replaced.')) {
-                    localStorage.setItem('lis_patients', JSON.stringify(backup.patients || []));
-                    localStorage.setItem('lis_orders', JSON.stringify(backup.orders || []));
-                    localStorage.setItem('lis_users', JSON.stringify(backup.users || []));
-                    localStorage.setItem('lis_referrals', JSON.stringify(backup.referrals || []));
-                    localStorage.setItem('lis_settings', JSON.stringify(backup.settings || {})); // Restore settings too
-                    alert('Restored! Reloading...');
+                if (confirm('Restore backup? This will merge/overwrite existing data.')) {
+                    // Use storage methods for compatibility with both Mock and Real Firebase
+                    // Note: In a real production app, "Restore" is complex. This acts more like a "Merge".
+
+                    if (backup.patients) {
+                        for (const p of backup.patients) await storage.savePatient(p);
+                    }
+                    if (backup.orders) {
+                        for (const o of backup.orders) await storage.saveOrder(o);
+                    }
+                    if (backup.users) {
+                        for (const u of backup.users) await storage.saveUser(u);
+                    }
+                    if (backup.referrals) {
+                        for (const r of backup.referrals) await storage.saveReferral(r);
+                    }
+                    if (backup.settings) {
+                        const s = Array.isArray(backup.settings) ? backup.settings[0] : backup.settings;
+                        if (s) await storage.saveSettings(s);
+                    }
+                    if (backup.homeCollections) {
+                        for (const hc of backup.homeCollections) await storage.saveHomeCollection(hc);
+                    }
+
+                    alert('Restored successfully! Reloading...');
                     window.location.reload();
                 }
             } catch (err) {
-                alert('Invalid backup file');
+                console.error("Import error:", err);
+                alert('Invalid backup file or import failed');
             }
         };
         reader.readAsText(file);
     };
 
     const handleFactoryReset = () => {
-        storage.factoryReset();
-        setTimeout(() => window.location.reload(), 500);
+        if (confirm("DANGER: This will wipe ALL data. Continue?")) {
+            // Clear all mock db keys
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('mock_fb_')) {
+                    localStorage.removeItem(key);
+                }
+            });
+            setTimeout(() => window.location.reload(), 500);
+        }
     };
 
     if (!isAuthenticated) {

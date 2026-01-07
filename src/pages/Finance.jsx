@@ -29,8 +29,8 @@ const Finance = () => {
         processReportData();
     }, [orders, activeTab]);
 
-    const loadData = () => {
-        const allOrders = storage.getOrders();
+    const loadData = async () => {
+        const allOrders = await storage.getOrders();
         setOrders(allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
 
         // Calculate Stats
@@ -42,6 +42,7 @@ const Finance = () => {
             .reduce((acc, order) => acc + (order.totalAmount || 0), 0);
 
         // Assume 'pending' status means payment might not be fully reconciled or just track 'potential' vs 'realized'
+        // For this LIS, let's treat all as Revenue but track 'Pending Processing' as maybe pending payment
         // For this LIS, let's treat all as Revenue but track 'Pending Processing' as maybe pending payment
         const pending = allOrders
             .filter(o => o.status !== 'completed')
@@ -137,8 +138,8 @@ const Finance = () => {
         setReportData(data);
     };
 
-    const handleDailyRegisterExport = () => {
-        const allPatients = storage.getPatients();
+    const handleDailyRegisterExport = async () => {
+        const allPatients = await storage.getPatients();
         const selectedDateStr = registerDate;
 
         // Filter patients registered on the selected date
@@ -180,8 +181,8 @@ const Finance = () => {
         XLSX.writeFile(wb, `Patient_Register_${selectedDateStr}.xlsx`);
     };
 
-    const handleOutsourcingExport = () => {
-        const allOrders = storage.getOrders();
+    const handleOutsourcingExport = async () => {
+        const allOrders = await storage.getOrders();
         const selectedDateStr = registerDate;
 
         const outsourcedTests = [];
@@ -282,7 +283,7 @@ const Finance = () => {
         XLSX.writeFile(wb, filename);
     };
 
-    const handleClearDue = (order) => {
+    const handleClearDue = async (order) => {
         if (confirm(`Confirm: Mark Order ${order.id} as PAID and clear due amount?`)) {
             const updated = {
                 ...order,
@@ -291,12 +292,12 @@ const Finance = () => {
                 advancePaid: order.totalAmount, // Assuming full payment
                 status: order.status === 'cancelled' ? 'pending' : order.status // Restore if it was cancelled? Maybe not.
             };
-            storage.updateOrder(order.id, updated);
+            await storage.updateOrder(order.id, updated);
             loadData(); // Reload
         }
     };
 
-    const handleCancelOrder = (order) => {
+    const handleCancelOrder = async (order) => {
         if (confirm(`Are you sure you want to CANCEL Order ${order.id}? This action cannot be easily undone.`)) {
             const updated = {
                 ...order,
@@ -304,7 +305,7 @@ const Finance = () => {
                 paymentStatus: 'Void',
                 balanceDue: 0
             };
-            storage.updateOrder(order.id, updated);
+            await storage.updateOrder(order.id, updated);
             loadData(); // Reload
         }
     };

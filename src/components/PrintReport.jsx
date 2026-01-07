@@ -9,10 +9,13 @@ const PrintReport = () => {
     const [signature, setSignature] = useState(null);
 
     useEffect(() => {
-        const settings = storage.getSettings();
-        if (settings.signature) {
-            setSignature(settings.signature);
-        }
+        const loadSettings = async () => {
+            const settings = await storage.getSettings();
+            if (settings && settings.signature) {
+                setSignature(settings.signature);
+            }
+        };
+        loadSettings();
     }, []);
 
     useEffect(() => {

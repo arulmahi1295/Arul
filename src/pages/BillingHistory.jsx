@@ -41,10 +41,10 @@ const BillingHistory = () => {
         }
     }, [searchTerm, orders]);
 
-    const loadDailyData = () => {
+    const loadDailyData = async () => {
         console.log("BillingHistory: Loading data for", selectedDate);
         try {
-            const allOrders = storage.getOrders() || [];
+            const allOrders = await storage.getOrders() || [];
             // Filter by selected date (YYYY-MM-DD)
             const dailyOrders = allOrders.filter(o => o.createdAt && o.createdAt.startsWith(selectedDate));
 
@@ -52,7 +52,7 @@ const BillingHistory = () => {
             dailyOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
             // Map Phone Numbers
-            const pts = storage.getPatients() || [];
+            const pts = await storage.getPatients() || [];
             const ptMap = pts.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
 
             dailyOrders.forEach(o => {

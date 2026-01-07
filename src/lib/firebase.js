@@ -1,0 +1,45 @@
+// Real Firebase Implementation
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    where,
+    orderBy,
+    Timestamp,
+    doc,
+    updateDoc,
+    deleteDoc
+} from 'firebase/firestore';
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAlnOtT83q2nkO6TI-uREQsITTdC-gJR0I",
+    authDomain: "greenhealth-lis.firebaseapp.com",
+    projectId: "greenhealth-lis",
+    storageBucket: "greenhealth-lis.firebasestorage.app",
+    messagingSenderId: "480606129452",
+    appId: "1:480606129452:web:f5bf7aacb0424e1532f089",
+    measurementId: "G-E0D3GMG3SQ"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+
+export {
+    db,
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    where,
+    orderBy,
+    Timestamp,
+    doc,
+    updateDoc,
+    deleteDoc
+};

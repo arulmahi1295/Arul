@@ -41,16 +41,19 @@ const Login = ({ onLogin }) => {
         return () => clearInterval(interval);
     }, []);
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
 
-        setTimeout(() => {
-            const users = storage.getUsers();
+        try {
+            // Artificial delay for UX + Data Fetch
+            await new Promise(r => setTimeout(r, 800));
+
+            const users = await storage.getUsers();
             let foundUser = null;
 
-            // Strict Search: Match both username (case-insensitive) AND password (case-sensitive)
+            // Strict Search
             if (username.trim()) {
                 foundUser = users.find(u =>
                     u.username.toLowerCase() === username.trim().toLowerCase() &&
@@ -81,7 +84,11 @@ const Login = ({ onLogin }) => {
                 setError('Authentication Failed: Invalid credentials.');
                 setIsLoading(false);
             }
-        }, 800);
+        } catch (err) {
+            console.error("Login Error", err);
+            setError('System Error: Unable to connect to database.');
+            setIsLoading(false);
+        }
     };
 
     return (

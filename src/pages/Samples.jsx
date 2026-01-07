@@ -9,8 +9,8 @@ const Samples = () => {
 
     useEffect(() => {
         // Poll for updates or just load once
-        const loadOrders = () => {
-            const allOrders = storage.getOrders();
+        const loadOrders = async () => {
+            const allOrders = await storage.getOrders();
             // Sort by newest first
             setOrders(allOrders.reverse());
         };
@@ -20,8 +20,8 @@ const Samples = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const handleStatusUpdate = (orderId, newStatus) => {
-        storage.updateOrderStatus(orderId, newStatus);
+    const handleStatusUpdate = async (orderId, newStatus) => {
+        await storage.updateOrderStatus(orderId, newStatus);
         // Refresh local state immediately
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     };

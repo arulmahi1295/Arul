@@ -21,9 +21,9 @@ const HomeCollection = () => {
         loadCollections();
     }, []);
 
-    const loadCollections = () => {
-        setCollections(storage.getHomeCollections());
-        setReferrals(storage.getReferrals());
+    const loadCollections = async () => {
+        setCollections(await storage.getHomeCollections());
+        setReferrals(await storage.getReferrals());
     };
 
     const handleFileChange = (e) => {
@@ -41,20 +41,16 @@ const HomeCollection = () => {
         }
     };
 
-    const handleAdd = (e) => {
+    const handleAdd = async (e) => {
         e.preventDefault();
-        storage.saveHomeCollection(formData);
-        setIsAddOpen(false);
-        storage.saveHomeCollection(formData);
-        setIsAddOpen(false);
-        storage.saveHomeCollection(formData);
+        await storage.saveHomeCollection(formData);
         setIsAddOpen(false);
         setFormData({ name: '', phone: '', altPhone: '', address: '', scheduledTime: '', phlebotomist: '', referral: '', prescription: null });
         loadCollections();
     };
 
-    const handleStatusUpdate = (id, newStatus) => {
-        storage.updateHomeCollection(id, { status: newStatus });
+    const handleStatusUpdate = async (id, newStatus) => {
+        await storage.updateHomeCollection(id, { status: newStatus });
         loadCollections();
     };
 

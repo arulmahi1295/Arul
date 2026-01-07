@@ -24,7 +24,11 @@ const PatientRegistration = () => {
     const [referrals, setReferrals] = useState([]);
 
     React.useEffect(() => {
-        setReferrals(storage.getReferrals());
+        const fetchReferrals = async () => {
+            const refs = await storage.getReferrals();
+            setReferrals(refs);
+        };
+        fetchReferrals();
     }, []);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [errors, setErrors] = useState({});
@@ -59,14 +63,22 @@ const PatientRegistration = () => {
         if (!validateForm()) return;
 
         // Generate ID and save to storage
-        const patientId = storage.getNextPatientId();
-        const patientData = { ...formData, id: patientId };
-        storage.savePatient(patientData);
+        const save = async () => {
+            try {
+                const patientId = await storage.getNextPatientId();
+                const patientData = { ...formData, id: patientId };
+                await storage.savePatient(patientData);
 
-        console.log('Patient Saved:', patientData);
-        setSavedPatientId(patientId);
-        setIsSubmitted(true);
-        setShowSuccessModal(true);
+                console.log('Patient Saved:', patientData);
+                setSavedPatientId(patientId);
+                setIsSubmitted(true);
+                setShowSuccessModal(true);
+            } catch (error) {
+                console.error("Failed to save patient", error);
+                // Optionally set an error state here
+            }
+        };
+        save();
     };
 
     const handleProceed = () => {

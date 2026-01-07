@@ -32,49 +32,53 @@ const Dashboard = () => {
     const [chartData, setChartData] = useState([]);
 
     useEffect(() => {
-        const auth = JSON.parse(localStorage.getItem('lis_auth') || '{}');
-        if (auth.user) setUser({ name: auth.user });
+        const loadDashboardData = async () => {
+            const auth = JSON.parse(localStorage.getItem('lis_auth') || '{}');
+            if (auth.user) setUser({ name: auth.user });
 
-        const allPatients = storage.getPatients();
-        const allOrders = storage.getOrders();
+            const allPatients = (await storage.getPatients()) || [];
+            const allOrders = (await storage.getOrders()) || [];
 
-        // Filter based on selected period
-        const now = new Date();
-        let startDate = new Date(0); // Default fallback
+            // Filter based on selected period
+            const now = new Date();
+            let startDate = new Date(0); // Default fallback
 
-        if (chartPeriod === 'day') {
-            startDate = new Date(now.setHours(0, 0, 0, 0));
-        } else if (chartPeriod === 'week') {
-            // Last 7 days
-            const d = new Date();
-            d.setDate(d.getDate() - 6);
-            d.setHours(0, 0, 0, 0);
-            startDate = d;
-        } else if (chartPeriod === 'month') {
-            // Start of current month
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        } else if (chartPeriod === 'quarter') {
-            // Start of 3 months ago (Current + 2 prev)
-            startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-        }
+            if (chartPeriod === 'day') {
+                startDate = new Date(now.setHours(0, 0, 0, 0));
+            } else if (chartPeriod === 'week') {
+                // Last 7 days
+                const d = new Date();
+                d.setDate(d.getDate() - 6);
+                d.setHours(0, 0, 0, 0);
+                startDate = d;
+            } else if (chartPeriod === 'month') {
+                // Start of current month
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            } else if (chartPeriod === 'quarter') {
+                // Start of 3 months ago (Current + 2 prev)
+                startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            }
 
-        const filterByDate = (item) => new Date(item.createdAt) >= startDate;
+            const filterByDate = (item) => new Date(item.createdAt) >= startDate;
 
-        const filteredPatients = allPatients.filter(filterByDate);
-        const filteredOrders = allOrders.filter(filterByDate);
+            const filteredPatients = allPatients.filter(filterByDate);
+            const filteredOrders = allOrders.filter(filterByDate);
 
-        const revenue = filteredOrders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
-        const pending = filteredOrders.filter(o => o.status === 'pending').length;
+            const revenue = filteredOrders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+            const pending = filteredOrders.filter(o => o.status === 'pending').length;
 
-        setStats({
-            totalPatients: filteredPatients.length,
-            samplesCollected: filteredOrders.length,
-            pendingReports: pending,
-            revenue: revenue
-        });
+            setStats({
+                totalPatients: filteredPatients.length,
+                samplesCollected: filteredOrders.length,
+                pendingReports: pending,
+                revenue: revenue
+            });
 
-        // Generate Chart Data based on Orders
-        processChartData(allOrders, chartPeriod);
+            // Generate Chart Data based on Orders
+            processChartData(allOrders, chartPeriod);
+        };
+
+        loadDashboardData();
 
     }, [chartPeriod]); // Re-run when period changes
 

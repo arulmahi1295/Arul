@@ -15,8 +15,8 @@ const Accession = () => {
         loadOrders();
     }, [activeTab]); // Reload when tab changes
 
-    const loadOrders = () => {
-        const allOrders = storage.getOrders();
+    const loadOrders = async () => {
+        const allOrders = await storage.getOrders();
         // Sort by date desc
         allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -39,15 +39,15 @@ const Accession = () => {
         setOrders(filtered);
     };
 
-    const handleReceiveSample = (orderId) => {
-        storage.updateOrder(orderId, {
+    const handleReceiveSample = async (orderId) => {
+        await storage.updateOrder(orderId, {
             status: 'collected',
             collectionDate: new Date().toISOString()
         });
         loadOrders();
     };
 
-    const handleAssignLab = (orderId, testIndex, labName) => {
+    const handleAssignLab = async (orderId, testIndex, labName) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
 
@@ -66,7 +66,7 @@ const Accession = () => {
             updates.status = 'processing';
         }
 
-        storage.updateOrder(orderId, updates);
+        await storage.updateOrder(orderId, updates);
         loadOrders();
     };
 
@@ -96,11 +96,11 @@ const Accession = () => {
         return { tatLimit, isOverdue };
     };
 
-    const handleDownloadTATReport = () => {
+    const handleDownloadTATReport = async () => {
         const headers = ['Order ID', 'Patient', 'Tests', 'Assigned Lab', 'Order Date', 'TAT Deadline', 'Status', 'Risk Level'];
         const csvRows = [headers.join(',')];
 
-        const allOrders = storage.getOrders();
+        const allOrders = await storage.getOrders();
         allOrders.forEach(order => {
             const { tatLimit, isOverdue } = getTATInfo(order);
             const status = isOverdue ? 'OVERDUE' : (order.status === 'completed' ? 'Completed' : 'On Time');
