@@ -1,16 +1,59 @@
-# React + Vite
+# GreenHealth LIMS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+GreenHealth LIMS (Laboratory Information Management System) is a comprehensive web-based application designed to streamline pathology lab operations, from patient registration to report generation.
 
-Currently, two official plugins are available:
+## 🚀 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Patient Registration**: easy entry of patient details with auto-synchronization of Age and DOB.
+- **Phlebotomy & Order Management**: Create orders, select tests, and track sample collection status.
+- **Accession Module**: Centralized tracking for sample reception, lab assignment (In-House vs. Outsourced), and Turnaround Time (TAT) monitoring.
+- **Result Entry & Reporting**: Enter test results, automatic flag for abnormal values, and generate PDF reports with digital signatures.
+- **Billing & Finance**: Track daily revenue, manage dues, and view financial history.
+- **Admin Dashboard**: Manage users, lab configurations, and view operational statistics.
 
-## React Compiler
+## 🛠️ Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React.js (Vite)
+- **Styling**: Vanilla CSS / Tailwind CSS
+- **Database**: Firebase Firestore (Live Cloud Storage)
+- **Deployment**: Vercel (SPA Routing Configured)
 
-## Expanding the ESLint configuration
+## 📦 Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd blood-collection-lis
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
+   The application will run at `http://localhost:5173`.
+
+## ☁️ Firebase Configuration
+
+The application is configured to use the `greenhealth-lis` Firebase project. Configuration is located in `src/lib/firebase.js`.
+Ensure your environment supports Firebase SDK connections.
+
+## 🚀 Deployment
+
+This project is configured for seamless deployment on Vercel.
+- **Configuration**: `vercel.json` is set up to handle Single Page Application (SPA) routing/rewrites.
+- **Trigger**: Pushing to the `master` branch will automatically trigger a new deployment.
+
+## 📚 User Guide
+
+For detailed instructions on how to use the application, refer to the [User Guide](USER_GUIDE.md).

@@ -615,12 +615,26 @@ const Admin = () => {
     const handleSignatureUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+
+        // Check file size (limit to 500KB)
+        const MAX_SIZE = 500 * 1024; // 500KB
+        if (file.size > MAX_SIZE) {
+            alert(`File is too large (${(file.size / 1024).toFixed(0)}KB). Please upload a smaller image (max 500KB).`);
+            e.target.value = null; // Reset input
+            return;
+        }
+
         const reader = new FileReader();
         reader.onloadend = async () => {
             const base64 = reader.result;
-            await storage.saveSettings({ signature: base64 });
-            loadAllData();
-            alert('Signature uploaded!');
+            try {
+                await storage.saveSettings({ signature: base64 });
+                loadAllData();
+                alert('Signature uploaded successfully!');
+            } catch (error) {
+                console.error("Upload failed", error);
+                alert(`Upload failed: ${error.message}`);
+            }
         };
         reader.readAsDataURL(file);
     };
