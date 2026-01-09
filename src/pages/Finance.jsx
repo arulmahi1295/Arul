@@ -9,6 +9,7 @@ const Finance = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [activeTab, setActiveTab] = useState('overview');
+    const [outsourcingStats, setOutsourcingStats] = useState({}); // Partner-wise stats
     const [stats, setStats] = useState({
         totalRevenue: 0,
         todayRevenue: 0,
@@ -134,6 +135,43 @@ const Finance = () => {
             data = orders.filter(o => o.paymentStatus === 'Pending');
         } else if (activeTab === 'advance') {
             data = orders.filter(o => o.advancePaid && o.advancePaid > 0);
+        } else if (activeTab === 'outsourcing') {
+            // Flatten orders to get individual outsourced tests
+            const list = [];
+            const partnerStats = {};
+
+            orders.forEach(o => {
+                if (!o.tests) return;
+                o.tests.forEach((t, index) => {
+                    if (t.labPartner && t.labPartner !== 'In-House') {
+                        const cost = t.outsourcedCost || 0;
+                        const partner = t.labPartner;
+
+                        // Add to list
+                        list.push({
+                            orderId: o.id,
+                            patientName: o.patientName || o.patientId,
+                            testName: t.name,
+                            labPartner: t.labPartner,
+                            cost: cost,
+                            status: t.settlementStatus || 'Pending',
+                            testIndex: index,
+                            sentDate: o.accessionDate || o.createdAt
+                        });
+
+                        // Sum up for stats check
+                        if (!partnerStats[partner]) partnerStats[partner] = { due: 0, paid: 0 };
+                        if (t.settlementStatus === 'Settled') {
+                            partnerStats[partner].paid += cost;
+                        } else {
+                            partnerStats[partner].due += cost;
+                        }
+                    }
+                });
+            });
+
+            setOutsourcingStats(partnerStats);
+            data = list.sort((a, b) => new Date(b.sentDate) - new Date(a.sentDate));
         }
         setReportData(data);
     };
@@ -229,6 +267,49 @@ const Finance = () => {
         XLSX.writeFile(wb, `Outsourcing_Report_${selectedDateStr}.xlsx`);
     };
 
+    const handleMasterExport = async () => {
+        const allOrders = await storage.getOrders();
+        const allPatients = await storage.getPatients();
+
+        if (allOrders.length === 0) {
+            alert('No data to export.');
+            return;
+        }
+
+        const data = allOrders.map(order => {
+            const patient = allPatients.find(p => p.id === order.patientId) || {};
+            // If patient name isn't on order, try to get from patient record, else fallback
+            const patientName = order.patientName || patient.fullName || order.patientId;
+
+            return {
+                'Order ID': order.id,
+                'Date': new Date(order.createdAt).toLocaleDateString(),
+                'Time': new Date(order.createdAt).toLocaleTimeString(),
+                'Patient Name': patientName,
+                'Patient ID': order.patientId,
+                'Phone': patient.phone || '',
+                'Gender': patient.gender || order.patientGender || '',
+                'Age': patient.age || order.patientAge || '',
+                'Tests': order.tests ? order.tests.map(t => t.name).join(', ') : '',
+                'Total Amount': order.totalAmount,
+                'Discount': order.discount || 0,
+                'Net Amount': (order.totalAmount || 0) - (order.discount || 0),
+                'Paid Amount': order.advancePaid || (order.paymentStatus === 'Paid' ? order.totalAmount : 0),
+                'Balance Due': order.balanceDue || 0,
+                'Payment Mode': order.paymentMode || 'Cash',
+                'Status': order.status,
+                'Referred By': order.doctor || ''
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wscols = Object.keys(data[0]).map(() => ({ wch: 20 }));
+        ws['!cols'] = wscols;
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Master Billing Data");
+        XLSX.writeFile(wb, `Master_Billing_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     const handleExport = () => {
         let headers = [];
         let dataRows = [];
@@ -314,6 +395,23 @@ const Finance = () => {
         window.open('/print/invoice', '_blank');
     };
 
+    const handleSettleTest = async (orderId, testIndex) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+
+        if (confirm(`Confirm settlement for Order ${orderId}: ${order.tests[testIndex].name}?`)) {
+            const updatedTests = [...order.tests];
+            updatedTests[testIndex] = {
+                ...updatedTests[testIndex],
+                settlementStatus: 'Settled',
+                minItemStock: undefined // Cleanup unrelated field if copied
+            };
+
+            await storage.updateOrder(orderId, { tests: updatedTests });
+            loadData();
+        }
+    };
+
     const StatusChip = ({ status }) => {
         const styles = {
             completed: 'bg-emerald-100 text-emerald-700',
@@ -369,7 +467,13 @@ const Finance = () => {
                         onClick={handleExport}
                         className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all font-medium text-sm"
                     >
-                        <Download className="mr-2 h-4 w-4" /> Export Financials
+                        <Download className="mr-2 h-4 w-4" /> Export Report
+                    </button>
+                    <button
+                        onClick={handleMasterExport}
+                        className="flex items-center px-4 py-2 bg-slate-800 text-white rounded-xl shadow-lg shadow-slate-400 hover:bg-slate-900 transition-all font-medium text-sm"
+                    >
+                        <FileText className="mr-2 h-4 w-4" /> Master Export
                     </button>
                 </div>
             </header>
@@ -424,7 +528,7 @@ const Finance = () => {
 
             {/* Tabs */}
             <div className="mb-6 flex space-x-2 overflow-x-auto pb-2">
-                {['Overview', 'Daily', 'Tests', 'Patients', 'Advance'].map(tab => (
+                {['Overview', 'Daily', 'Tests', 'Patients', 'Trackers', 'Advance', 'Outsourcing'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab.toLowerCase())}
@@ -641,6 +745,17 @@ const Finance = () => {
                                             <th className="px-6 py-4 text-right">Due Amount</th>
                                         </>
                                     )}
+                                    {activeTab === 'outsourcing' && (
+                                        <>
+                                            <th className="px-6 py-4">Date</th>
+                                            <th className="px-6 py-4">Partner</th>
+                                            <th className="px-6 py-4">Order / Patient</th>
+                                            <th className="px-6 py-4">Test</th>
+                                            <th className="px-6 py-4 text-right">Cost</th>
+                                            <th className="px-6 py-4 text-center">Status</th>
+                                            <th className="px-6 py-4 text-right">Action</th>
+                                        </>
+                                    )}
                                     {activeTab === 'advance' && (
                                         <>
                                             <th className="px-6 py-4">Order ID</th>
@@ -706,6 +821,33 @@ const Finance = () => {
                                                     <td className="px-6 py-4 text-right text-sm font-bold text-rose-600">₹{row.balanceDue}</td>
                                                 </>
                                             )}
+                                            {activeTab === 'outsourcing' && (
+                                                <>
+                                                    <td className="px-6 py-4 text-sm text-slate-500">{new Date(row.sentDate).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{row.labPartner}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-xs font-mono text-slate-500">{row.orderId}</div>
+                                                        <div className="text-sm font-medium text-slate-800">{row.patientName}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{row.testName}</td>
+                                                    <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">₹{row.cost}</td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.status === 'Settled' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {row.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {row.status !== 'Settled' && (
+                                                            <button
+                                                                onClick={() => handleSettleTest(row.orderId, row.testIndex)}
+                                                                className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 transition-colors"
+                                                            >
+                                                                Settle
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </>
+                                            )}
                                         </tr>
                                     ))
                                 )}
@@ -741,6 +883,24 @@ const Finance = () => {
                                         )}
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Outsourcing Summary Cards */}
+                    {activeTab === 'outsourcing' && (
+                        <div className="p-6 border-t border-slate-100 bg-slate-50">
+                            <h3 className="font-bold text-slate-800 mb-4">Partner Summary (Total Due)</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {Object.entries(outsourcingStats).map(([partner, stat]) => (
+                                    <div key={partner} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                                        <div className="text-sm text-slate-500 font-medium mb-1">{partner}</div>
+                                        <div className="flex justify-between items-end">
+                                            <div className="text-2xl font-bold text-slate-800">₹{stat.due}</div>
+                                            <div className="text-xs text-emerald-600 font-medium">Paid: ₹{stat.paid}</div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}

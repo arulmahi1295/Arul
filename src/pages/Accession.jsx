@@ -7,13 +7,20 @@ const Accession = () => {
     const [orders, setOrders] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLab, setSelectedLab] = useState('In-House');
+    const [inventoryItems, setInventoryItems] = useState([]);
 
     // Stats for tabs
     const [stats, setStats] = useState({ reception: 0, assignment: 0, processing: 0, completed: 0 });
 
     useEffect(() => {
         loadOrders();
+        loadInventory();
     }, [activeTab]); // Reload when tab changes
+
+    const loadInventory = async () => {
+        const items = await storage.getInventory();
+        setInventoryItems(items);
+    };
 
     const loadOrders = async () => {
         const allOrders = await storage.getOrders();
@@ -39,20 +46,68 @@ const Accession = () => {
         setOrders(filtered);
     };
 
+    const deductStock = async (order) => {
+        let log = [];
+        // Heuristic: 1 tube per Unique Category per Patient
+        const cats = new Set(order.tests.map(t => (t.category || '').toUpperCase()));
+
+        for (const cat of cats) {
+            let keywords = [];
+            if (cat === 'HEMATOLOGY') keywords = ['EDTA', 'LAVENDER', 'CBC'];
+            else if (cat.includes('BIOCHEMISTRY') || cat.includes('IMMUNOLOGY') || cat.includes('SEROLOGY')) keywords = ['SST', 'YELLOW', 'SERUM', 'PLAIN', 'CLOT'];
+            else if (cat.includes('GLUCOSE') || cat.includes('DIABETES')) keywords = ['FLUORIDE', 'GREY', 'GRAY'];
+            else if (cat.includes('COAGULATION')) keywords = ['CITRATE', 'BLUE'];
+            else if (cat.includes('URINE') || cat.includes('CLINICAL')) keywords = ['URINE', 'CONTAINER'];
+
+            if (keywords.length > 0) {
+                // Find first matching item with stock
+                const item = inventoryItems.find(i =>
+                    keywords.some(k => i.name.toUpperCase().includes(k)) && Number(i.quantity) > 0
+                );
+
+                if (item) {
+                    await storage.updateInventoryItem(item.id, { quantity: Number(item.quantity) - 1 });
+                    // Update local state to prevent double deduction if multiple orders processed quickly
+                    setInventoryItems(prev => prev.map(p => p.id === item.id ? { ...p, quantity: Number(p.quantity) - 1 } : p));
+                    log.push(item.name);
+                }
+            }
+        }
+        return log;
+    };
+
     const handleReceiveSample = async (orderId) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+
+        // Auto-deduct inventory
+        const usedStock = await deductStock(order);
+
         await storage.updateOrder(orderId, {
             status: 'collected',
             collectionDate: new Date().toISOString()
         });
+
+        if (usedStock.length > 0) {
+            alert(`Sample Received. Stock deducted: ${usedStock.join(', ')}`);
+        } else {
+            // alert('Sample Received.'); // Optional: Less noise
+        }
+
         loadOrders();
     };
 
-    const handleAssignLab = async (orderId, testIndex, labName) => {
+    const handleAssignLab = async (orderId, testIndex, labName, cost = 0) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
 
         const updatedTests = [...order.tests];
-        updatedTests[testIndex] = { ...updatedTests[testIndex], labPartner: labName };
+        updatedTests[testIndex] = {
+            ...updatedTests[testIndex],
+            labPartner: labName,
+            outsourcedCost: parseFloat(cost) || 0,
+            settlementStatus: 'Pending' // Pending | Settled
+        };
 
         // Check if all tests have a lab partner assigned
         const allAssigned = updatedTests.every(t => t.labPartner);
@@ -264,20 +319,37 @@ const Accession = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 {activeTab === 'assignment' ? (
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-3">
                                                         {order.tests.map((test, index) => (
-                                                            <div key={index} className="flex items-center justify-between gap-2 text-sm bg-white/50 p-2 rounded-lg border border-slate-200">
-                                                                <span className="font-medium text-slate-700 truncate max-w-[150px]" title={test.name}>{test.name}</span>
-                                                                <select
-                                                                    className="px-2 py-1 rounded border border-slate-300 text-xs focus:border-brand-500 outline-none w-32 bg-white"
-                                                                    value={test.labPartner || ''}
-                                                                    onChange={(e) => handleAssignLab(order.id, index, e.target.value)}
-                                                                >
-                                                                    <option value="" disabled>Select Lab...</option>
-                                                                    {labPartners.map(lab => (
-                                                                        <option key={lab} value={lab}>{lab}</option>
-                                                                    ))}
-                                                                </select>
+                                                            <div key={index} className="flex flex-col gap-2 text-sm bg-white/50 p-3 rounded-lg border border-slate-200">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <span className="font-medium text-slate-700 truncate max-w-[150px]" title={test.name}>{test.name}</span>
+                                                                    <span className="text-xs text-slate-400">{test.code}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <select
+                                                                        className="flex-1 px-2 py-1.5 rounded border border-slate-300 text-xs focus:border-brand-500 outline-none bg-white"
+                                                                        value={test.labPartner || ''}
+                                                                        onChange={(e) => handleAssignLab(order.id, index, e.target.value, test.outsourcedCost)}
+                                                                    >
+                                                                        <option value="" disabled>Select Lab...</option>
+                                                                        {labPartners.map(lab => (
+                                                                            <option key={lab} value={lab}>{lab}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    {test.labPartner && test.labPartner !== 'In-House' && (
+                                                                        <div className="relative w-24">
+                                                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">₹</span>
+                                                                            <input
+                                                                                type="number"
+                                                                                placeholder="Cost"
+                                                                                className="w-full pl-5 pr-2 py-1.5 rounded border border-slate-300 text-xs focus:border-brand-500 outline-none"
+                                                                                value={test.outsourcedCost || ''}
+                                                                                onChange={(e) => handleAssignLab(order.id, index, test.labPartner, e.target.value)}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>

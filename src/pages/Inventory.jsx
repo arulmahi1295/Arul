@@ -61,6 +61,28 @@ const Inventory = () => {
         }
     };
 
+    const handleInitializeStock = async () => {
+        if (!confirm('Add standard test tubes to inventory? (EDTA, SST, Fluoride, Citrate, Urine Container)')) return;
+
+        const defaults = [
+            { name: 'EDTA Vacutainer (Lavender)', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
+            { name: 'SST Vacutainer (Yellow)', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
+            { name: 'Fluoride Vacutainer (Grey)', category: 'Consumables', quantity: 50, unit: 'pcs', minLevel: 10 },
+            { name: 'Citrate Vacutainer (Blue)', category: 'Consumables', quantity: 50, unit: 'pcs', minLevel: 10 },
+            { name: 'Urine Container', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
+        ];
+
+        for (const item of defaults) {
+            // Check if exists
+            const exists = items.some(i => i.name === item.name);
+            if (!exists) {
+                await storage.saveInventoryItem(item);
+            }
+        }
+        loadInventory();
+        alert('Standard stock initialized!');
+    };
+
     const handleDelete = async (id) => {
         if (confirm('Are you sure you want to delete this item?')) {
             await storage.deleteInventoryItem(id);
@@ -128,12 +150,22 @@ const Inventory = () => {
                     </h1>
                     <p className="text-slate-500">Track stock levels, consumables, and expiry dates.</p>
                 </div>
-                <button
-                    onClick={() => { resetForm(); setIsModalOpen(true); }}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors"
-                >
-                    <Plus className="h-5 w-5 mr-2" /> Add Item
-                </button>
+                <div className="flex gap-3">
+                    {items.length === 0 && (
+                        <button
+                            onClick={handleInitializeStock}
+                            className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl font-bold flex items-center hover:bg-emerald-200 transition-colors"
+                        >
+                            <Package className="h-5 w-5 mr-2" /> Initialize Stock
+                        </button>
+                    )}
+                    <button
+                        onClick={() => { resetForm(); setIsModalOpen(true); }}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors"
+                    >
+                        <Plus className="h-5 w-5 mr-2" /> Add Item
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
