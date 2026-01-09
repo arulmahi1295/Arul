@@ -1,15 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, CreditCard, Calendar, ArrowUpRight, ArrowDownRight, Search, FileText, Download, Building2, Edit2 } from 'lucide-react';
+import { DollarSign, TrendingUp, CreditCard, Calendar, ArrowUpRight, ArrowDownRight, Search, FileText, Download, Building2, Edit2, Wallet, PieChart as PieIcon, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../data/storage';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import * as XLSX from 'xlsx';
+
+const StatCard = ({ title, value, icon: Icon, color, trend, trendValue, subtitle }) => (
+    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(6,81,237,0.1)] hover:shadow-lg transition-all duration-300 group">
+        <div className="flex items-start justify-between mb-4">
+            <div className={`h-12 w-12 rounded-2xl ${color} flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+                <Icon className="h-6 w-6 text-white" />
+            </div>
+            {trend && (
+                <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-full ${trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                    <TrendingUp className={`h-3 w-3 mr-1 ${trend === 'down' ? 'rotate-180' : ''}`} />
+                    {trendValue}
+                </span>
+            )}
+        </div>
+        <div>
+            <p className="text-slate-500 text-sm font-semibold tracking-wide uppercase">{title}</p>
+            <h3 className="text-2xl font-bold text-slate-800 mt-1">{value}</h3>
+            {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
+        </div>
+    </div>
+);
 
 const Finance = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [activeTab, setActiveTab] = useState('overview');
-    const [outsourcingStats, setOutsourcingStats] = useState({}); // Partner-wise stats
+    const [outsourcingStats, setOutsourcingStats] = useState({});
     const [stats, setStats] = useState({
         totalRevenue: 0,
         todayRevenue: 0,
@@ -36,18 +57,13 @@ const Finance = () => {
 
         // Calculate Stats
         const total = allOrders.reduce((acc, order) => acc + (order.totalAmount || 0), 0);
-
         const todayStr = new Date().toISOString().split('T')[0];
         const today = allOrders
             .filter(o => o.createdAt.startsWith(todayStr))
             .reduce((acc, order) => acc + (order.totalAmount || 0), 0);
-
-        // Assume 'pending' status means payment might not be fully reconciled or just track 'potential' vs 'realized'
-        // For this LIS, let's treat all as Revenue but track 'Pending Processing' as maybe pending payment
-        // For this LIS, let's treat all as Revenue but track 'Pending Processing' as maybe pending payment
         const pending = allOrders
-            .filter(o => o.status !== 'completed')
-            .reduce((acc, order) => acc + (order.totalAmount || 0), 0);
+            .filter(o => o.status !== 'completed' && o.status !== 'cancelled')
+            .reduce((acc, order) => acc + (order.totalAmount || 0), 0); // Simplified estimate
 
         setStats({
             totalRevenue: total,
@@ -56,8 +72,7 @@ const Finance = () => {
             avgOrderValue: allOrders.length ? Math.round(total / allOrders.length) : 0
         });
 
-        // Prepare Chart Data
-        // 1. Daily Revenue (Last 7 Days)
+        // Chart Data: Daily Revenue (Last 7 Days)
         const last7Days = [];
         for (let i = 6; i >= 0; i--) {
             const date = new Date();
@@ -74,13 +89,13 @@ const Finance = () => {
         }
         setDailyRevenueData(last7Days);
 
-        // 2. Payment Mix
+        // Chart Data: Payment Mix
         const mix = {};
         allOrders.forEach(o => {
             const mode = o.paymentMode || 'Cash';
             mix[mode] = (mix[mode] || 0) + (o.totalAmount || 0);
         });
-        const mixData = Object.keys(mix).map(key => ({ name: key, value: mix[key] }));
+        const mixData = Object.keys(mix).map(key => ({ name: key, value: mix[key], color: key === 'Cash' ? '#10B981' : key === 'UPI' ? '#6366f1' : '#F59E0B' }));
         setPaymentMixData(mixData);
     };
 
@@ -100,18 +115,20 @@ const Finance = () => {
         } else if (activeTab === 'tests') {
             const testMap = {};
             orders.forEach(order => {
-                order.tests.forEach(test => {
-                    if (!testMap[test.code]) testMap[test.code] = { code: test.code, name: test.name, count: 0, revenue: 0 };
-                    testMap[test.code].count++;
-                    testMap[test.code].revenue += test.price;
-                });
+                if (order.tests) {
+                    order.tests.forEach(test => {
+                        if (!testMap[test.code]) testMap[test.code] = { code: test.code, name: test.name, count: 0, revenue: 0 };
+                        testMap[test.code].count++;
+                        testMap[test.code].revenue += (test.price || 0);
+                    });
+                }
             });
             data = Object.values(testMap).sort((a, b) => b.revenue - a.revenue);
         } else if (activeTab === 'patients') {
             const patientMap = {};
             orders.forEach(order => {
                 const pId = order.patientId.split(' - ')[0] || order.patientId;
-                const pName = order.patientId.split(' - ')[1] || 'Unknown';
+                const pName = order.patientName || order.patientId.split(' - ')[1] || 'Unknown';
                 if (!patientMap[pId]) patientMap[pId] = { id: pId, name: pName, visits: 0, revenue: 0, lastVisit: '' };
                 patientMap[pId].visits++;
                 patientMap[pId].revenue += order.totalAmount;
@@ -121,33 +138,18 @@ const Finance = () => {
             });
             data = Object.values(patientMap).sort((a, b) => b.revenue - a.revenue);
         } else if (activeTab === 'trackers') {
-            // We'll return an object with two lists instead of a single array, 
-            // but setReportData expects an array. Let's start with Pending Payments as the primary data for the table, 
-            // or we handle the UI to show two tables. 
-            // Simpler: Let reportData be the "Pending Payments" list for now, 
-            // and we compute "Pending Reports" in the render or vice versa.
-            // Actually, let's make reportData generic list and filter in UI? No, processReportData should set it.
-            // Strategy: reportData will hold "Pending Payments". 
-            // We will calculate "Pending Reports" separately or just repurpose reportData based on sub-selection.
-            // For this iteration, let's make "Trackers" show "Pending Payments" primarily.
-            // Wait, logic says "pending reports and pending payment".
-            // Let's filter orders where paymentStatus is Pending.
-            data = orders.filter(o => o.paymentStatus === 'Pending');
+            data = orders.filter(o => o.paymentStatus === 'Pending' || o.balanceDue > 0);
         } else if (activeTab === 'advance') {
             data = orders.filter(o => o.advancePaid && o.advancePaid > 0);
         } else if (activeTab === 'outsourcing') {
-            // Flatten orders to get individual outsourced tests
             const list = [];
             const partnerStats = {};
-
             orders.forEach(o => {
                 if (!o.tests) return;
                 o.tests.forEach((t, index) => {
                     if (t.labPartner && t.labPartner !== 'In-House') {
                         const cost = t.outsourcedCost || 0;
                         const partner = t.labPartner;
-
-                        // Add to list
                         list.push({
                             orderId: o.id,
                             patientName: o.patientName || o.patientId,
@@ -158,18 +160,12 @@ const Finance = () => {
                             testIndex: index,
                             sentDate: o.accessionDate || o.createdAt
                         });
-
-                        // Sum up for stats check
                         if (!partnerStats[partner]) partnerStats[partner] = { due: 0, paid: 0 };
-                        if (t.settlementStatus === 'Settled') {
-                            partnerStats[partner].paid += cost;
-                        } else {
-                            partnerStats[partner].due += cost;
-                        }
+                        if (t.settlementStatus === 'Settled') partnerStats[partner].paid += cost;
+                        else partnerStats[partner].due += cost;
                     }
                 });
             });
-
             setOutsourcingStats(partnerStats);
             data = list.sort((a, b) => new Date(b.sentDate) - new Date(a.sentDate));
         }
@@ -179,17 +175,8 @@ const Finance = () => {
     const handleDailyRegisterExport = async () => {
         const allPatients = await storage.getPatients();
         const selectedDateStr = registerDate;
-
-        // Filter patients registered on the selected date
-        // Note: createdAt is ISO string, so we split by 'T'
         const dailyPatients = allPatients.filter(p => p.createdAt && p.createdAt.startsWith(selectedDateStr));
-
-        if (dailyPatients.length === 0) {
-            alert(`No patients found registered on ${selectedDateStr}`);
-            return;
-        }
-
-        // Prepare comprehensive data
+        if (dailyPatients.length === 0) { alert(`No patients found registered on ${selectedDateStr}`); return; }
         const exportData = dailyPatients.map(p => ({
             'Patient ID': p.id,
             'Full Name': p.fullName,
@@ -206,31 +193,23 @@ const Finance = () => {
             'Registration Date': new Date(p.createdAt).toLocaleString(),
             'Payment Mode': p.paymentMode
         }));
-
         const ws = XLSX.utils.json_to_sheet(exportData);
-
-        // Adjust column widths
         const wscols = Object.keys(exportData[0]).map(() => ({ wch: 20 }));
         ws['!cols'] = wscols;
-
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Daily Register");
-
         XLSX.writeFile(wb, `Patient_Register_${selectedDateStr}.xlsx`);
     };
 
     const handleOutsourcingExport = async () => {
         const allOrders = await storage.getOrders();
         const selectedDateStr = registerDate;
-
         const outsourcedTests = [];
-
         allOrders.forEach(o => {
             if (!o.tests) return;
             o.tests.forEach(test => {
                 const isOutsourced = test.labPartner && test.labPartner !== 'In-House';
                 const dateToCompare = o.accessionDate || o.createdAt;
-
                 if (isOutsourced && dateToCompare && dateToCompare.startsWith(selectedDateStr)) {
                     outsourcedTests.push({
                         orderId: o.id,
@@ -244,12 +223,7 @@ const Finance = () => {
                 }
             });
         });
-
-        if (outsourcedTests.length === 0) {
-            alert(`No outsourced tests found for ${selectedDateStr}`);
-            return;
-        }
-
+        if (outsourcedTests.length === 0) { alert(`No outsourced tests found for ${selectedDateStr}`); return; }
         const exportData = outsourcedTests.map(t => ({
             'Order ID': t.orderId,
             'Patient': t.patientId,
@@ -258,7 +232,6 @@ const Finance = () => {
             'Sent Date': t.sentDate,
             'Status': t.status
         }));
-
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wscols = Object.keys(exportData[0]).map(() => ({ wch: 20 }));
         ws['!cols'] = wscols;
@@ -270,17 +243,10 @@ const Finance = () => {
     const handleMasterExport = async () => {
         const allOrders = await storage.getOrders();
         const allPatients = await storage.getPatients();
-
-        if (allOrders.length === 0) {
-            alert('No data to export.');
-            return;
-        }
-
+        if (allOrders.length === 0) { alert('No data to export.'); return; }
         const data = allOrders.map(order => {
             const patient = allPatients.find(p => p.id === order.patientId) || {};
-            // If patient name isn't on order, try to get from patient record, else fallback
             const patientName = order.patientName || patient.fullName || order.patientId;
-
             return {
                 'Order ID': order.id,
                 'Date': new Date(order.createdAt).toLocaleDateString(),
@@ -301,7 +267,6 @@ const Finance = () => {
                 'Referred By': order.doctor || ''
             };
         });
-
         const ws = XLSX.utils.json_to_sheet(data);
         const wscols = Object.keys(data[0]).map(() => ({ wch: 20 }));
         ws['!cols'] = wscols;
@@ -315,7 +280,6 @@ const Finance = () => {
         let dataRows = [];
         let filename = `report_${activeTab}_${new Date().toISOString().split('T')[0]}.xlsx`;
 
-        // Define Report Columns
         if (activeTab === 'daily') {
             headers = ['Date', 'Order Count', 'Total Revenue', 'Cash Revenue', 'Other Revenue'];
             dataRows = reportData.map(d => [d.date, d.count, d.revenue, d.cash, d.other]);
@@ -329,36 +293,21 @@ const Finance = () => {
             headers = ['Order ID', 'Patient', 'Date', 'Payment Status', 'Due Amount'];
             dataRows = reportData.map(d => [d.id, d.patientId, d.createdAt, 'Pending', d.totalAmount]);
         } else {
-            // Transaction export
             headers = ['Order ID', 'Patient', 'Date', 'Payment Mode', 'Status', 'Amount'];
             dataRows = orders.map(o => [o.id, o.patientId, o.createdAt, o.paymentMode || 'Cash', o.status, o.totalAmount]);
             filename = `transactions_${new Date().toISOString().split('T')[0]}.xlsx`;
         }
-
-        // Create Letterhead / Branding Rows
         const brandingRows = [
-            ['LIMSPro Labs'],
+            ['GreenHealth Lab'],
             ['123 Health Avenue, Medical District'],
             ['Phone: +1 (555) 123-4567 | GSTIN: 22AAAAA0000A1Z5'],
             ['Report Generated: ' + new Date().toLocaleString()],
-            [] // Empty row for spacing
+            []
         ];
-
-        // Combine All Rows
-        const finalData = [
-            ...brandingRows,
-            headers,
-            ...dataRows
-        ];
-
-        // Create Worksheet
+        const finalData = [...brandingRows, headers, ...dataRows];
         const ws = XLSX.utils.aoa_to_sheet(finalData);
-
-        // Optional: Simple column width adjustments (heuristic)
         const wscols = headers.map(() => ({ wch: 20 }));
         ws['!cols'] = wscols;
-
-        // Create Workbook and Export
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Financial Report");
         XLSX.writeFile(wb, filename);
@@ -370,11 +319,11 @@ const Finance = () => {
                 ...order,
                 paymentStatus: 'Paid',
                 balanceDue: 0,
-                advancePaid: order.totalAmount, // Assuming full payment
-                status: order.status === 'cancelled' ? 'pending' : order.status // Restore if it was cancelled? Maybe not.
+                advancePaid: order.totalAmount,
+                status: order.status === 'cancelled' ? 'pending' : order.status
             };
             await storage.updateOrder(order.id, updated);
-            loadData(); // Reload
+            loadData();
         }
     };
 
@@ -387,7 +336,7 @@ const Finance = () => {
                 balanceDue: 0
             };
             await storage.updateOrder(order.id, updated);
-            loadData(); // Reload
+            loadData();
         }
     };
     const handleDownloadReceipt = (order) => {
@@ -398,15 +347,13 @@ const Finance = () => {
     const handleSettleTest = async (orderId, testIndex) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
-
         if (confirm(`Confirm settlement for Order ${orderId}: ${order.tests[testIndex].name}?`)) {
             const updatedTests = [...order.tests];
             updatedTests[testIndex] = {
                 ...updatedTests[testIndex],
                 settlementStatus: 'Settled',
-                minItemStock: undefined // Cleanup unrelated field if copied
+                minItemStock: undefined
             };
-
             await storage.updateOrder(orderId, { tests: updatedTests });
             loadData();
         }
@@ -422,7 +369,7 @@ const Finance = () => {
         };
         const displayStatus = status === 'payment-due' ? 'PAYMENT DUE' : status;
         return (
-            <span className={`inline-block px-2 py-1 rounded text-[10px] tracking-wider font-bold uppercase ${styles[status] || styles['pending']}`}>
+            <span className={`inline-flex items-center px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${styles[status] || styles['pending']}`}>
                 {displayStatus}
             </span>
         );
@@ -435,256 +382,119 @@ const Finance = () => {
     );
 
     return (
-        <div className="max-w-7xl mx-auto pb-12">
-            <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto pb-12 space-y-8">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Financial Reports</h1>
-                    <p className="text-slate-500">Track revenue, payments, and detailed analytics.</p>
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Financial Hub</h1>
+                    <p className="text-slate-500">Revenue, expense tracking, and settlement management.</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center bg-white border border-slate-200 rounded-lg px-3 py-1.5">
-                        <span className="text-xs font-semibold text-slate-500 mr-2 uppercase">Register Date:</span>
-                        <input
-                            type="date"
-                            value={registerDate}
-                            onChange={(e) => setRegisterDate(e.target.value)}
-                            className="outline-none text-sm text-slate-700 font-medium bg-transparent"
-                        />
+                <div className="flex gap-3">
+                    <button onClick={handleExport} className="bg-white border border-slate-200 text-slate-700 hover:text-indigo-600 px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition-all flex items-center">
+                        <Download className="h-4 w-4 mr-2" /> Reports
+                    </button>
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                        {['Overview', 'Daily', 'Tests', 'Trackers', 'Outsourcing'].map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab.toLowerCase())}
+                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === tab.toLowerCase() ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
                     </div>
-                    <button
-                        onClick={handleDailyRegisterExport}
-                        className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all font-medium text-sm"
-                    >
-                        <FileText className="mr-2 h-4 w-4" /> Export Daily Register
-                    </button>
-                    <button
-                        onClick={handleOutsourcingExport}
-                        className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-xl shadow-lg shadow-orange-200 hover:bg-orange-700 transition-all font-medium text-sm"
-                    >
-                        <Building2 className="mr-2 h-4 w-4" /> Export Outsourcing
-                    </button>
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all font-medium text-sm"
-                    >
-                        <Download className="mr-2 h-4 w-4" /> Export Report
-                    </button>
-                    <button
-                        onClick={handleMasterExport}
-                        className="flex items-center px-4 py-2 bg-slate-800 text-white rounded-xl shadow-lg shadow-slate-400 hover:bg-slate-900 transition-all font-medium text-sm"
-                    >
-                        <FileText className="mr-2 h-4 w-4" /> Master Export
-                    </button>
                 </div>
             </header>
 
-            {/* Quick Stats - Only on Overview */}
+            {/* Quick Stats */}
             {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-                                <DollarSign className="h-6 w-6" />
-                            </div>
-                            <span className="flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                                <TrendingUp className="h-3 w-3 mr-1" /> +12%
-                            </span>
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium">Total Revenue</p>
-                        <h3 className="text-3xl font-bold text-slate-800">₹{stats.totalRevenue.toLocaleString()}</h3>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
-                                <Calendar className="h-6 w-6" />
-                            </div>
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium">Today's Revenue</p>
-                        <h3 className="text-3xl font-bold text-slate-800">₹{stats.todayRevenue.toLocaleString()}</h3>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
-                                <CreditCard className="h-6 w-6" />
-                            </div>
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium">Pending Processing (Est.)</p>
-                        <h3 className="text-3xl font-bold text-slate-800">₹{stats.pendingAmount.toLocaleString()}</h3>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
-                                <TrendingUp className="h-6 w-6" />
-                            </div>
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium">Avg. Order Value</p>
-                        <h3 className="text-3xl font-bold text-slate-800">₹{stats.avgOrderValue.toLocaleString()}</h3>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="bg-gradient-to-br from-emerald-500 to-teal-600" trend="up" trendValue="12%" />
+                    <StatCard title="Today's Revenue" value={`₹${stats.todayRevenue.toLocaleString()}`} icon={Calendar} color="bg-gradient-to-br from-blue-500 to-indigo-600" subtitle="Daily performance" />
+                    <StatCard title="Pending (Est.)" value={`₹${stats.pendingAmount.toLocaleString()}`} icon={CreditCard} color="bg-gradient-to-br from-amber-500 to-orange-600" subtitle="Unrealized revenue" />
+                    <StatCard title="Avg. Order" value={`₹${stats.avgOrderValue.toLocaleString()}`} icon={TrendingUp} color="bg-gradient-to-br from-violet-500 to-purple-600" subtitle="Per patient" />
                 </div>
             )}
 
-            {/* Tabs */}
-            <div className="mb-6 flex space-x-2 overflow-x-auto pb-2">
-                {['Overview', 'Daily', 'Tests', 'Patients', 'Trackers', 'Advance', 'Outsourcing'].map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab.toLowerCase())}
-                        className={`px-6 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-colors ${activeTab === tab.toLowerCase()
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                            }`}
-                    >
-                        {tab} Details
-                    </button>
-                ))}
-            </div>
-
-            {/* Content Area */}
             {activeTab === 'overview' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Transaction List */}
-                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+                        <div className="p-6 border-b border-slate-50 flex justify-between items-center">
                             <h2 className="font-bold text-slate-800 text-lg">Recent Transactions</h2>
-                            <button className="text-sm text-indigo-600 font-medium hover:text-indigo-700">View All</button>
-                        </div>
-
-                        <div className="p-4 border-b border-slate-100">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <input
                                     type="text"
-                                    placeholder="Search by ID, Patient Name..."
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-100 outline-none text-sm"
+                                    placeholder="Search transactions..."
+                                    className="pl-9 pr-4 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-100 outline-none transition-all w-48"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
                         </div>
-
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto flex-1">
                             <table className="w-full text-left">
-                                <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
+                                <thead className="bg-slate-50/50 text-slate-500 text-xs uppercase font-semibold">
                                     <tr>
-                                        <th className="px-6 py-4">Transaction ID</th>
+                                        <th className="px-6 py-4">ID</th>
                                         <th className="px-6 py-4">Patient</th>
                                         <th className="px-6 py-4">Date</th>
-                                        <th className="px-6 py-4">Payment</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Amount</th>
                                         <th className="px-6 py-4 text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredTransactions.length === 0 ? (
-                                        <tr><td colSpan="7" className="text-center py-12 text-slate-400">No transactions found.</td></tr>
-                                    ) : (
-                                        filteredTransactions.slice(0, 10).map(order => (
-                                            <tr key={order.id} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 font-mono text-xs font-bold text-slate-600">{order.id}</td>
-                                                <td className="px-6 py-4 text-sm font-medium text-slate-800">
-                                                    <div>{order.patientName || order.patientId}</div>
-                                                    <div className="text-xs text-slate-400">{order.patientId}</div>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600 font-medium">{order.paymentMode || 'Cash'}</td>
-                                                <td className="px-6 py-4">
-                                                    <StatusChip status={(order.balanceDue > 0 || order.paymentStatus === 'Pending') && order.status !== 'cancelled' ? 'payment-due' : order.status} />
-                                                    {order.balanceDue > 0 && (
-                                                        <div className="mt-1 text-xs font-bold text-rose-600">
-                                                            Due: ₹{order.balanceDue}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-right font-bold text-slate-800">₹{order.totalAmount}</td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex justify-end space-x-2 items-center">
-                                                        <button
-                                                            onClick={() => handleDownloadReceipt(order)}
-                                                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600"
-                                                            title="Download Receipt"
-                                                        >
-                                                            <Download className="h-4 w-4" />
-                                                        </button>
-                                                        {order.status !== 'cancelled' && (order.paymentStatus !== 'Paid' || ((order.balanceDue || 0) > 0)) ? (
-                                                            <button
-                                                                onClick={() => handleClearDue(order)}
-                                                                className="p-1 hover:bg-emerald-50 rounded text-slate-400 hover:text-emerald-600"
-                                                                title="Settle Balance / Mark Fully Paid"
-                                                            >
-                                                                <CreditCard className="h-4 w-4" />
-                                                            </button>
-                                                        ) : null}
-                                                        {order.status !== 'cancelled' && (
-                                                            <button
-                                                                onClick={() => navigate('/phlebotomy', { state: { editOrderId: order.id } })}
-                                                                className="p-1 hover:bg-amber-50 rounded text-slate-400 hover:text-amber-600"
-                                                                title="Edit Bill"
-                                                            >
-                                                                <Edit2 className="h-4 w-4" />
-                                                            </button>
-                                                        )}
-                                                        {order.status !== 'cancelled' && (
-                                                            <button
-                                                                onClick={() => handleCancelOrder(order)}
-                                                                className="p-1 hover:bg-rose-50 rounded text-slate-400 hover:text-rose-600"
-                                                                title="Cancel Bill"
-                                                            >
-                                                                <TrendingUp className="h-4 w-4 rotate-180" /> {/* Using rotate as a hack for cancel icon if trash is not desired, but let's use Trash if imported? No Trash imported. Use TrendingUp down? Or 'X' inside SVG? Let's use simple text 'X' or existing icon. FileText is imported. DollarSign. Trash is NOT imported. Use 'ArrowDownRight'. */}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
+                                <tbody className="divide-y divide-slate-50">
+                                    {filteredTransactions.slice(0, 8).map(order => (
+                                        <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
+                                            <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">{order.id}</td>
+                                            <td className="px-6 py-4 text-sm font-semibold text-slate-700">{order.patientName || order.patientId}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4"><StatusChip status={(order.balanceDue > 0 || order.paymentStatus === 'Pending') && order.status !== 'cancelled' ? 'payment-due' : order.status} /></td>
+                                            <td className="px-6 py-4 text-right font-bold text-slate-800">₹{order.totalAmount}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    <button onClick={() => handleDownloadReceipt(order)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors"><Download className="h-4 w-4" /></button>
+                                                    {order.balanceDue > 0 && <button onClick={() => handleClearDue(order)} className="p-1.5 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors"><CreditCard className="h-4 w-4" /></button>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    {/* Revenue Charts Section */}
+                    {/* Revenue Charts */}
                     <div className="space-y-6">
-                        {/* Revenue Trend Chart */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 className="font-bold text-slate-800 mb-4">Revenue Trend (7 Days)</h3>
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wide">Revenue Trend</h3>
                             <div className="h-48">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={dailyRevenueData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                                        <YAxis hide />
-                                        <Tooltip
-                                            cursor={{ fill: '#F1F5F9' }}
-                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                        />
-                                        <Bar dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} barSize={20} />
-                                    </BarChart>
+                                    <AreaChart data={dailyRevenueData}>
+                                        <defs>
+                                            <linearGradient id="colorRevSmall" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                                                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }} />
+                                        <Area type="monotone" dataKey="revenue" stroke="#10B981" fillOpacity={1} fill="url(#colorRevSmall)" strokeWidth={2} />
+                                    </AreaChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
-                        {/* Payment Mix Pie Chart */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 className="font-bold text-slate-800 mb-4">Payment Mix</h3>
-                            <div className="h-48 flex items-center justify-center">
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wide">Payment Modes</h3>
+                            <div className="h-48">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie
-                                            data={paymentMixData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={40}
-                                            outerRadius={70}
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                        >
-                                            {paymentMixData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B'][index % 4]} />
-                                            ))}
+                                        <Pie data={paymentMixData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                                            {paymentMixData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color || '#94a3b8'} />)}
                                         </Pie>
                                         <Tooltip />
                                         <Legend verticalAlign="bottom" height={36} iconType="circle" />
@@ -692,218 +502,32 @@ const Finance = () => {
                                 </ResponsiveContainer>
                             </div>
                         </div>
-
-                        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl shadow-lg text-white">
-                            <h3 className="font-bold text-lg mb-2">Pro Optimization Tip</h3>
-                            <p className="text-indigo-100 text-sm mb-4">
-                                Your "Pending Processing" revenue is higher than average. Consider prioritizing sample collection to recognize revenue faster.
-                            </p>
-                            <button className="w-full py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-colors">
-                                View Optimization Report
-                            </button>
-                        </div>
                     </div>
                 </div>
             ) : (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
                                 <tr>
-                                    {activeTab === 'daily' && (
-                                        <>
-                                            <th className="px-6 py-4">Date</th>
-                                            <th className="px-6 py-4">Order Count</th>
-                                            <th className="px-6 py-4">Cash Sales</th>
-                                            <th className="px-6 py-4">Other Sales</th>
-                                            <th className="px-6 py-4 text-right">Total Revenue</th>
-                                        </>
-                                    )}
-                                    {activeTab === 'tests' && (
-                                        <>
-                                            <th className="px-6 py-4">Test Code</th>
-                                            <th className="px-6 py-4">Test Name</th>
-                                            <th className="px-6 py-4">Quantity Sold</th>
-                                            <th className="px-6 py-4 text-right">Total Revenue</th>
-                                        </>
-                                    )}
-                                    {activeTab === 'patients' && (
-                                        <>
-                                            <th className="px-6 py-4">Patient ID</th>
-                                            <th className="px-6 py-4">Patient Name</th>
-                                            <th className="px-6 py-4">Last Visit</th>
-                                            <th className="px-6 py-4">Visit Count</th>
-                                            <th className="px-6 py-4 text-right">Total Spent</th>
-                                        </>
-                                    )}
-                                    {activeTab === 'trackers' && (
-                                        <>
-                                            <th className="px-6 py-4">Order ID</th>
-                                            <th className="px-6 py-4">Patient</th>
-                                            <th className="px-6 py-4">Date</th>
-                                            <th className="px-6 py-4">Payment Status</th>
-                                            <th className="px-6 py-4 text-right">Due Amount</th>
-                                        </>
-                                    )}
-                                    {activeTab === 'outsourcing' && (
-                                        <>
-                                            <th className="px-6 py-4">Date</th>
-                                            <th className="px-6 py-4">Partner</th>
-                                            <th className="px-6 py-4">Order / Patient</th>
-                                            <th className="px-6 py-4">Test</th>
-                                            <th className="px-6 py-4 text-right">Cost</th>
-                                            <th className="px-6 py-4 text-center">Status</th>
-                                            <th className="px-6 py-4 text-right">Action</th>
-                                        </>
-                                    )}
-                                    {activeTab === 'advance' && (
-                                        <>
-                                            <th className="px-6 py-4">Order ID</th>
-                                            <th className="px-6 py-4">Patient</th>
-                                            <th className="px-6 py-4">Date</th>
-                                            <th className="px-6 py-4 text-right">Total Amount</th>
-                                            <th className="px-6 py-4 text-right">Advance Paid</th>
-                                            <th className="px-6 py-4 text-right">Balance Due</th>
-                                        </>
-                                    )}
+                                    {activeTab === 'daily' && (<><th className="px-6 py-4">Date</th><th className="px-6 py-4">Count</th><th className="px-6 py-4 text-right">Total Revenue</th></>)}
+                                    {activeTab === 'tests' && (<><th className="px-6 py-4">Test Code</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Qty</th><th className="px-6 py-4 text-right">Revenue</th></>)}
+                                    {activeTab === 'patients' && (<><th className="px-6 py-4">ID</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Visits</th><th className="px-6 py-4 text-right">Spent</th></>)}
+                                    {activeTab === 'outsourcing' && (<><th className="px-6 py-4">Partner</th><th className="px-6 py-4">Test</th><th className="px-6 py-4">Cost</th><th className="px-6 py-4 text-right">Status</th></>)}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {reportData.length === 0 ? (
-                                    <tr><td colSpan="6" className="text-center py-12 text-slate-400">No data available for this report.</td></tr>
-                                ) : (
-                                    reportData.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50">
-                                            {activeTab === 'daily' && (
-                                                <>
-                                                    <td className="px-6 py-4 text-sm font-medium text-slate-800">{row.date}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{row.count}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">₹{row.cash}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">₹{row.other}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td>
-                                                </>
-                                            )}
-                                            {activeTab === 'tests' && (
-                                                <>
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-600 bg-slate-50 w-24">{row.code}</td>
-                                                    <td className="px-6 py-4 text-sm font-medium text-slate-800">{row.name}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{row.count}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td>
-                                                </>
-                                            )}
-                                            {activeTab === 'patients' && (
-                                                <>
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-600">{row.id}</td>
-                                                    <td className="px-6 py-4 text-sm font-medium text-slate-800">{row.name}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-500">{row.lastVisit}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{row.visits}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td>
-                                                </>
-                                            )}
-                                            {activeTab === 'trackers' && (
-                                                <>
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-600">{row.id}</td>
-                                                    <td className="px-6 py-4 text-sm font-medium text-slate-800">{row.patientId}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-500">{new Date(row.createdAt).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4">
-                                                        <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-bold uppercase">Pending</span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.totalAmount}</td>
-                                                </>
-                                            )}
-                                            {activeTab === 'advance' && (
-                                                <>
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-600">{row.id}</td>
-                                                    <td className="px-6 py-4 text-sm font-medium text-slate-800">{row.patientId}</td>
-                                                    <td className="px-6 py-4 text-sm text-slate-500">{new Date(row.createdAt).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 text-right text-sm text-slate-600">₹{row.totalAmount}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{row.advancePaid}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-rose-600">₹{row.balanceDue}</td>
-                                                </>
-                                            )}
-                                            {activeTab === 'outsourcing' && (
-                                                <>
-                                                    <td className="px-6 py-4 text-sm text-slate-500">{new Date(row.sentDate).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{row.labPartner}</td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="text-xs font-mono text-slate-500">{row.orderId}</div>
-                                                        <div className="text-sm font-medium text-slate-800">{row.patientName}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600">{row.testName}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">₹{row.cost}</td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.status === 'Settled' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                                            {row.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        {row.status !== 'Settled' && (
-                                                            <button
-                                                                onClick={() => handleSettleTest(row.orderId, row.testIndex)}
-                                                                className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 transition-colors"
-                                                            >
-                                                                Settle
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </>
-                                            )}
-                                        </tr>
-                                    ))
-                                )}
+                            <tbody className="divide-y divide-slate-50">
+                                {reportData.length === 0 ? <tr><td colSpan="4" className="text-center py-8 text-slate-400">No data available.</td></tr> : reportData.map((row, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                        {activeTab === 'daily' && (<><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.date}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">₹{row.revenue}</td></>)}
+                                        {activeTab === 'tests' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.code}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
+                                        {activeTab === 'patients' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.id}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.visits}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
+                                        {activeTab === 'outsourcing' && (<><td className="px-6 py-4 text-sm font-semibold text-slate-700">{row.labPartner}</td><td className="px-6 py-4 text-sm text-slate-600">{row.testName}</td><td className="px-6 py-4 text-sm text-rose-600">₹{row.cost}</td><td className="px-6 py-4 text-right"><span className={`text-xs font-bold px-2 py-1 rounded ${row.status === 'Settled' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{row.status}</span></td></>)}
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
-                    {/* Additional Sub-Section for Pending Reports (Logic in UI for simplicity) */}
-                    {activeTab === 'trackers' && (
-                        <div className="p-6 border-t border-slate-100 bg-slate-50">
-                            <h3 className="font-bold text-slate-800 mb-4 flex items-center">
-                                <FileText className="h-5 w-5 mr-2 text-indigo-600" /> Pending Lab Reports
-                            </h3>
-                            <div className="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
-                                        <tr>
-                                            <th className="px-6 py-3">Order ID</th>
-                                            <th className="px-6 py-3">Patient</th>
-                                            <th className="px-6 py-3">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {orders.filter(o => o.status !== 'completed').length === 0 ? (
-                                            <tr><td colSpan="3" className="text-center py-6 text-slate-400">All reports completed!</td></tr>
-                                        ) : (
-                                            orders.filter(o => o.status !== 'completed').map(o => (
-                                                <tr key={o.id}>
-                                                    <td className="px-6 py-3 text-xs font-bold text-slate-600">{o.id}</td>
-                                                    <td className="px-6 py-3 text-sm text-slate-800">{o.patientId}</td>
-                                                    <td className="px-6 py-3"><StatusChip status={o.status} /></td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Outsourcing Summary Cards */}
-                    {activeTab === 'outsourcing' && (
-                        <div className="p-6 border-t border-slate-100 bg-slate-50">
-                            <h3 className="font-bold text-slate-800 mb-4">Partner Summary (Total Due)</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {Object.entries(outsourcingStats).map(([partner, stat]) => (
-                                    <div key={partner} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                                        <div className="text-sm text-slate-500 font-medium mb-1">{partner}</div>
-                                        <div className="flex justify-between items-end">
-                                            <div className="text-2xl font-bold text-slate-800">₹{stat.due}</div>
-                                            <div className="text-xs text-emerald-600 font-medium">Paid: ₹{stat.paid}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>

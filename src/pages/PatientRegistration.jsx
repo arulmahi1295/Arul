@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Phone, Mail, MapPin, Calendar, CheckCircle, Activity, AlertCircle, CreditCard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Phone, Mail, MapPin, Calendar, CheckCircle, Activity, AlertCircle, CreditCard, Clock, Search, ChevronRight, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../data/storage';
 
@@ -8,7 +8,7 @@ const PatientRegistration = () => {
     const [formData, setFormData] = useState({
         fullName: '',
         age: '',
-        dob: '', // Added DOB field
+        dob: '',
         gender: 'male',
         phone: '',
         email: '',
@@ -22,14 +22,7 @@ const PatientRegistration = () => {
         referralId: ''
     });
     const [referrals, setReferrals] = useState([]);
-
-    React.useEffect(() => {
-        const fetchReferrals = async () => {
-            const refs = await storage.getReferrals();
-            setReferrals(refs);
-        };
-        fetchReferrals();
-    }, []);
+    const [recentPatients, setRecentPatients] = useState([]);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [errors, setErrors] = useState({});
     const [savedPatientId, setSavedPatientId] = useState(null);
@@ -37,99 +30,70 @@ const PatientRegistration = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [submitError, setSubmitError] = useState(null);
 
+    useEffect(() => {
+        loadInitialData();
+    }, []);
+
+    const loadInitialData = async () => {
+        const refs = await storage.getReferrals();
+        setReferrals(refs || []);
+        const patients = await storage.getPatients();
+        if (patients) {
+            setRecentPatients(patients.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5));
+        }
+    };
+
     const validateForm = () => {
         const newErrors = {};
         if (formData.fullName.length < 3) newErrors.fullName = 'Name must be at least 3 characters';
-
         const ageNum = parseInt(formData.age);
-        if (!ageNum || ageNum <= 0 || ageNum > 120) newErrors.age = 'Invalid age (1-120)';
-
-        // DOB Validation
+        if (!ageNum || ageNum <= 0 || ageNum > 120) newErrors.age = 'Invalid age';
         if (formData.dob) {
-            const selectedDate = new Date(formData.dob);
-            const today = new Date();
-            if (selectedDate > today) {
-                newErrors.dob = 'Date of Birth cannot be in the future';
-            }
+            if (new Date(formData.dob) > new Date()) newErrors.dob = 'Future date not allowed';
         }
-
         if (!/^\d{10}$/.test(formData.phone)) newErrors.phone = 'Phone must be 10 digits';
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitError(null);
-
         if (!validateForm()) return;
 
-        // Generate ID and save to storage
-        const save = async () => {
-            setIsSaving(true);
-            try {
-                const patientId = await storage.getNextPatientId();
-                const patientData = { ...formData, id: patientId };
-                await storage.savePatient(patientData);
-
-                console.log('Patient Saved:', patientData);
-                setSavedPatientId(patientId);
-                setIsSubmitted(true);
-                setShowSuccessModal(true);
-            } catch (error) {
-                console.error("Failed to save patient", error);
-                setSubmitError("Failed to save patient. Please check your internet connection.");
-                alert("Error saving patient: " + (error.message || "Unknown error"));
-            } finally {
-                setIsSaving(false);
-            }
-        };
-        save();
-    };
-
-    const handleProceed = () => {
-        navigate('/phlebotomy', {
-            state: {
-                prefillPatient: formData.fullName,
-                patientId: savedPatientId,
-                patientName: formData.fullName,
-                paymentMode: formData.paymentMode
-            }
-        });
+        setIsSaving(true);
+        try {
+            const patientId = await storage.getNextPatientId();
+            const patientData = { ...formData, id: patientId };
+            await storage.savePatient(patientData);
+            setSavedPatientId(patientId);
+            setIsSubmitted(true);
+            setShowSuccessModal(true);
+            loadInitialData(); // Refresh recent list
+        } catch (error) {
+            setSubmitError("Failed to save patient. Please check connection.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-
-        // Special handling for Age/DOB Sync
         if (name === 'dob') {
             const dobDate = new Date(value);
             const today = new Date();
             if (!isNaN(dobDate.getTime())) {
                 let calculatedAge = today.getFullYear() - dobDate.getFullYear();
                 const m = today.getMonth() - dobDate.getMonth();
-                if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) {
-                    calculatedAge--;
-                }
-                // Only update age if logical
-                if (calculatedAge >= 0) {
-                    setFormData(prev => ({ ...prev, dob: value, age: calculatedAge.toString() }));
-                } else {
-                    setFormData(prev => ({ ...prev, [name]: value }));
-                }
-            } else {
-                setFormData(prev => ({ ...prev, [name]: value }));
+                if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) calculatedAge--;
+                if (calculatedAge >= 0) setFormData(prev => ({ ...prev, dob: value, age: calculatedAge.toString() }));
+                else setFormData(prev => ({ ...prev, [name]: value }));
             }
         } else if (name === 'age') {
-            // Estimate DOB based on Age (Default to Jan 1st of calculated year)
             const ageNum = parseInt(value);
             if (!isNaN(ageNum) && ageNum > 0 && ageNum <= 120) {
-                const today = new Date();
-                const estimatedYear = today.getFullYear() - ageNum;
-                // Format as YYYY-MM-DD
-                const estimatedDob = `${estimatedYear}-01-01`;
-                setFormData(prev => ({ ...prev, age: value, dob: estimatedDob }));
+                const estimatedYear = new Date().getFullYear() - ageNum;
+                setFormData(prev => ({ ...prev, age: value, dob: `${estimatedYear}-01-01` }));
             } else {
                 setFormData(prev => ({ ...prev, [name]: value }));
             }
@@ -138,346 +102,238 @@ const PatientRegistration = () => {
         }
     };
 
-    return (
-        <div className="max-w-4xl mx-auto">
-            <header className="mb-8 flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">New Patient Registration</h1>
-                    <p className="text-slate-500 mt-1">Enter patient details securely to create a new record.</p>
-                </div>
-                <button
-                    onClick={() => navigate('/')}
-                    className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-sm transition-colors"
+    const handleProceed = () => {
+        navigate('/phlebotomy', {
+            state: { prefillPatient: formData.fullName, patientId: savedPatientId, patientName: formData.fullName, paymentMode: formData.paymentMode }
+        });
+    };
+
+    // Reusable Input Component
+    const InputField = ({ label, icon: Icon, error, ...props }) => (
+        <div className="group">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{label}</label>
+            <div className="relative transition-all duration-300">
+                <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 ${error ? 'text-rose-400' : 'text-slate-400 group-focus-within:text-indigo-500'} transition-colors`} />
+                <input
+                    {...props}
+                    className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${error ? 'border-rose-100 bg-rose-50 text-rose-900 focus:border-rose-500' : 'border-slate-100 bg-slate-50 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10'} outline-none transition-all placeholder:text-slate-400 font-medium`}
+                />
+            </div>
+            {error && <p className="text-xs text-rose-500 mt-1 ml-1 font-medium flex items-center"><AlertCircle className="h-3 w-3 mr-1" />{error}</p>}
+        </div>
+    );
+
+    const SelectField = ({ label, icon: Icon, children, ...props }) => (
+        <div className="group">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{label}</label>
+            <div className="relative">
+                {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />}
+                <select
+                    {...props}
+                    className={`w-full ${Icon ? 'pl-12' : 'px-4'} pr-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium appearance-none`}
                 >
-                    Cancel
-                </button>
+                    {children}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="max-w-7xl mx-auto pb-12">
+            <header className="mb-8">
+                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Patient Registration</h1>
+                <p className="text-slate-500">Create new patient records and manage demographics.</p>
             </header>
 
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Personal Info Section */}
-                        <div className="space-y-6">
-                            <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Personal Information</h3>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        name="fullName"
-                                        required
-                                        value={formData.fullName}
-                                        onChange={handleChange}
-                                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.fullName ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'} outline-none transition-all`}
-                                        placeholder="e.g. John Doe"
-                                    />
-                                </div>
-                                {errors.fullName && <p className="text-xs text-rose-500 mt-1 ml-1">{errors.fullName}</p>}
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                                    <div className="relative">
-                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input
-                                            type="date"
-                                            name="dob"
-                                            value={formData.dob}
-                                            onChange={handleChange}
-                                            className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.dob ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'} outline-none transition-all`}
-                                        />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Registration Form - Takes 2/3 width */}
+                <div className="lg:col-span-2">
+                    <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-8 space-y-8">
+                            {/* Personal Information */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                        <User className="h-5 w-5" />
                                     </div>
-                                    {errors.dob && <p className="text-xs text-rose-500 mt-1 ml-1">{errors.dob}</p>}
+                                    <h3 className="text-lg font-bold text-slate-800">Personal Information</h3>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
-                                    <input
-                                        type="number"
-                                        name="age"
-                                        required
-                                        value={formData.age}
-                                        onChange={handleChange}
-                                        className={`w-full px-4 py-2.5 rounded-xl border ${errors.age ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'} outline-none transition-all`}
-                                        placeholder="Age"
-                                    />
-                                    {errors.age && <p className="text-xs text-rose-500 mt-1 ml-1">{errors.age}</p>}
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
-                                    <select
-                                        name="gender"
-                                        value={formData.gender}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all bg-white"
-                                    >
-                                        <option value="male">Male</option>
-                                        <option value="female">Female</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Payment Mode</label>
-                                <div className="relative">
-                                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <select
-                                        name="paymentMode"
-                                        value={formData.paymentMode}
-                                        onChange={handleChange}
-                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all bg-white"
-                                    >
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="md:col-span-2">
+                                        <InputField label="Full Name" icon={User} name="fullName" value={formData.fullName} onChange={handleChange} error={errors.fullName} placeholder="e.g. John Doe" required />
+                                    </div>
+                                    <InputField label="Date of Birth" icon={Calendar} type="date" name="dob" value={formData.dob} onChange={handleChange} error={errors.dob} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <InputField label="Age" icon={Activity} type="number" name="age" value={formData.age} onChange={handleChange} error={errors.age} required placeholder="Yrs" />
+                                        <SelectField label="Gender" name="gender" value={formData.gender} onChange={handleChange}>
+                                            <option value="male">Male</option>
+                                            <option value="female">Female</option>
+                                            <option value="other">Other</option>
+                                        </SelectField>
+                                    </div>
+                                    <SelectField label="Payment Mode" icon={CreditCard} name="paymentMode" value={formData.paymentMode} onChange={handleChange}>
                                         <option value="Cash">Cash</option>
                                         <option value="Card">Card</option>
                                         <option value="UPI">UPI / Online</option>
                                         <option value="Insurance">Insurance</option>
-                                        <option value="Other">Other</option>
-                                    </select>
+                                    </SelectField>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <SelectField label="Source" name="source" value={formData.source} onChange={handleChange}>
+                                            <option value="Walk-in">Walk-in</option>
+                                            <option value="Home Collection">Home</option>
+                                            <option value="Corporate">Corporate</option>
+                                        </SelectField>
+                                        <SelectField label="Referral" name="referralId" value={formData.referralId} onChange={handleChange}>
+                                            <option value="">None</option>
+                                            {referrals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                        </SelectField>
+                                    </div>
                                 </div>
-                            </div>
+                            </section>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Patient Source</label>
-                                    <select
-                                        name="source"
-                                        value={formData.source}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all bg-white"
-                                    >
-                                        <option value="Walk-in">Walk-in</option>
-                                        <option value="Home Collection">Home Collection</option>
-                                        <option value="Corporate">Corporate</option>
-                                        <option value="Camp">Camp</option>
-                                        <option value="Direct">Direct / Self</option>
-                                    </select>
+                            <hr className="border-slate-100" />
+
+                            {/* Contact Details */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                        <Phone className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-800">Contact Details</h3>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Referral (Optional)</label>
-                                    <select
-                                        name="referralId"
-                                        value={formData.referralId}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all bg-white"
-                                    >
-                                        <option value="">-- No Referral --</option>
-                                        {referrals.map(r => (
-                                            <option key={r.id} value={r.id}>{r.name} ({r.type})</option>
-                                        ))}
-                                    </select>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Phone Number" icon={Phone} type="tel" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} required placeholder="10-digit mobile" />
+                                    <InputField label="Email Address" icon={Mail} type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Optional" />
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Address</label>
+                                        <div className="relative">
+                                            <MapPin className="absolute left-4 top-4 h-5 w-5 text-slate-400" />
+                                            <textarea
+                                                name="address"
+                                                rows="2"
+                                                value={formData.address}
+                                                onChange={handleChange}
+                                                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400 font-medium resize-none"
+                                                placeholder="Full residential address"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            </section>
+
+                            <hr className="border-slate-100" />
+
+                            {/* Medical History */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-600">
+                                        <Activity className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-800">Medical Context</h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SelectField label="Blood Group" name="bloodGroup" value={formData.bloodGroup} onChange={handleChange}>
+                                        <option value="">Unknown / Select</option>
+                                        <option value="A+">A+</option>
+                                        <option value="A-">A-</option>
+                                        <option value="B+">B+</option>
+                                        <option value="B-">B-</option>
+                                        <option value="O+">O+</option>
+                                        <option value="O-">O-</option>
+                                        <option value="AB+">AB+</option>
+                                        <option value="AB-">AB-</option>
+                                    </SelectField>
+                                    <InputField label="Conditions" icon={Activity} name="medicalConditions" value={formData.medicalConditions} onChange={handleChange} placeholder="e.g. Diabetes" />
+                                </div>
+                            </section>
                         </div>
 
-                        {/* Contact Info Section */}
-                        <div className="space-y-6">
-                            <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-100 pb-2 mb-4">Contact Details</h3>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input
-                                        type="tel"
-                                        name="phone"
-                                        required
-                                        value={formData.phone}
-                                        onChange={handleChange}
-                                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border ${errors.phone ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'} outline-none transition-all`}
-                                        placeholder="10 digit number"
-                                    />
-                                </div>
-                                {errors.phone && <p className="text-xs text-rose-500 mt-1 ml-1">{errors.phone}</p>}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                        placeholder="john@example.com"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                                    <textarea
-                                        name="address"
-                                        rows="3"
-                                        value={formData.address}
-                                        onChange={handleChange}
-                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
-                                        placeholder="Full residential address"
-                                    />
-                                </div>
-                            </div>
+                        <div className="bg-slate-50 p-6 border-t border-slate-100 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '', bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash', source: 'Walk-in', referralId: '' })}
+                                className="px-6 py-3 rounded-xl text-slate-600 font-bold hover:bg-slate-200 transition-colors text-sm"
+                            >
+                                Reset Form
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSaving || isSubmitted}
+                                className={`px-8 py-3 rounded-xl text-white font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 transition-all text-sm flex items-center ${isSubmitted ? 'bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                            >
+                                {isSubmitted ? <><CheckCircle className="h-5 w-5 mr-2" /> Registered</> : isSaving ? 'Saving...' : <><UserPlus className="h-5 w-5 mr-2" /> Register Patient</>}
+                            </button>
                         </div>
+                    </form>
+                </div>
+
+                {/* Sidebar: Recent Registrations - Takes 1/3 width */}
+                <div className="space-y-6">
+                    <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16 blur-xl"></div>
+                        <h3 className="text-xl font-bold mb-2">Registration Tips</h3>
+                        <ul className="text-indigo-100 text-sm space-y-2 list-disc list-inside opacity-90">
+                            <li>Check for existing patients first</li>
+                            <li>Verify mobile number with OTP if enabled</li>
+                            <li>Collect insurance details upfront</li>
+                        </ul>
                     </div>
 
-                    {/* Medical History Section */}
-                    <div className="mt-8 pt-8 border-t border-slate-100">
-                        <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center">
-                            <Activity className="mr-2 h-5 w-5 text-indigo-500" />
-                            Medical History
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                        <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                            <Clock className="h-5 w-5 mr-2 text-slate-400" />
+                            Recent Registrations
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group</label>
-                                <select
-                                    name="bloodGroup"
-                                    value={formData.bloodGroup}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all bg-white"
-                                >
-                                    <option value="">Select Blood Group</option>
-                                    <option value="A+">A+</option>
-                                    <option value="A-">A-</option>
-                                    <option value="B+">B+</option>
-                                    <option value="B-">B-</option>
-                                    <option value="O+">O+</option>
-                                    <option value="O-">O-</option>
-                                    <option value="AB+">AB+</option>
-                                    <option value="AB-">AB-</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Existing Medical Conditions</label>
-                                <textarea
-                                    name="medicalConditions"
-                                    rows="2"
-                                    value={formData.medicalConditions}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
-                                    placeholder="e.g. Diabetes, Hypertension"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Current Medications</label>
-                                <textarea
-                                    name="medications"
-                                    rows="2"
-                                    value={formData.medications}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
-                                    placeholder="List any medications currently being taken"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Allergies</label>
-                                <div className="relative">
-                                    <AlertCircle className="absolute left-3 top-3 h-5 w-5 text-rose-400" />
-                                    <textarea
-                                        name="allergies"
-                                        rows="2"
-                                        value={formData.allergies}
-                                        onChange={handleChange}
-                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-rose-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 outline-none transition-all resize-none"
-                                        placeholder="List any known allergies"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex flex-col items-end">
-                    {submitError && <p className="text-sm text-rose-600 mb-2 font-medium">{submitError}</p>}
-                    <div className="flex">
-                        <button
-                            type="button"
-                            className="mr-3 px-6 py-2.5 text-sm font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
-                            onClick={() => setFormData({
-                                fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '',
-                                bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash',
-                                source: 'Walk-in', referralId: ''
-                            })}
-                            disabled={isSaving || isSubmitted}
-                        >
-                            Reset
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSaving || isSubmitted}
-                            className={`px-6 py-2.5 text-sm font-medium text-white rounded-lg transition-all shadow-md hover:shadow-lg flex items-center ${isSubmitted ? 'bg-emerald-500 hover:bg-emerald-600' :
-                                    isSaving ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-                                }`}
-                        >
-                            {isSubmitted ? (
-                                <>
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Registered Successfully
-                                </>
-                            ) : isSaving ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Registering...
-                                </>
+                        <div className="space-y-4">
+                            {recentPatients.length === 0 ? (
+                                <p className="text-slate-400 text-sm text-center py-4">No recent patients found.</p>
                             ) : (
-                                'Register Patient'
+                                recentPatients.map(p => (
+                                    <div key={p.id} className="group flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all cursor-pointer">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm">
+                                                {p.fullName.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{p.fullName}</p>
+                                                <p className="text-xs text-slate-400">{p.gender}, {p.age}y</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs font-mono text-slate-300 bg-slate-100 px-2 py-1 rounded-md">{p.id.slice(-4)}</span>
+                                    </div>
+                                ))
                             )}
+                        </div>
+                        <button onClick={() => navigate('/directory')} className="w-full mt-4 py-3 text-sm font-bold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors">
+                            View All Patients
                         </button>
                     </div>
                 </div>
-            </form>
+            </div>
 
             {/* Success Modal */}
             {showSuccessModal && (
-                <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
-                        <div className="text-center mb-6">
-                            <div className="h-16 w-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle className="h-8 w-8 text-emerald-600" />
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in fade-in zoom-in duration-300">
+                        <div className="text-center mb-8">
+                            <div className="h-20 w-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                                <CheckCircle className="h-10 w-10 text-emerald-600" />
                             </div>
-                            <h2 className="text-2xl font-bold text-slate-800">Registration Successful</h2>
-                            <p className="text-slate-500 mt-2">Patient has been registered with ID <span className="font-mono font-bold text-slate-700">{savedPatientId}</span></p>
+                            <h2 className="text-3xl font-bold text-slate-800 mb-2">Registration Complete</h2>
+                            <p className="text-slate-500 text-lg">Patient ID: <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-1 rounded-lg">{savedPatientId}</span></p>
                         </div>
-
                         <div className="space-y-3">
-                            <button
-                                onClick={() => {
-                                    navigate('/print/patient-card', { state: { patientId: savedPatientId } });
-                                }}
-                                className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium transition-colors flex items-center justify-center"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                </svg>
-                                Print Patient Card
+                            <button onClick={() => navigate('/print/patient-card', { state: { patientId: savedPatientId } })} className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl font-bold shadow-lg transition-all flex items-center justify-center">
+                                Print Card <CheckCircle className="h-5 w-5 ml-2 opacity-50" />
                             </button>
-                            <button
-                                onClick={handleProceed}
-                                className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors"
-                            >
-                                Proceed to Test Selection
+                            <button onClick={handleProceed} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center justify-center">
+                                Proceed to Tests <ChevronRight className="h-5 w-5 ml-2" />
                             </button>
-                            <button
-                                onClick={() => {
-                                    setShowSuccessModal(false);
-                                    setIsSubmitted(false);
-                                    setSavedPatientId(null);
-                                    setFormData({
-                                        fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '',
-                                        bloodGroup: '', medicalConditions: '', medications: '', allergies: '',
-                                        source: 'Walk-in', referralId: ''
-                                    });
-                                }}
-                                className="w-full py-3 px-4 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-xl font-medium transition-colors"
-                            >
-                                Close & Register New Patient
+                            <button onClick={() => { setShowSuccessModal(false); setIsSubmitted(false); setSavedPatientId(null); setFormData({ fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '', bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash', source: 'Walk-in', referralId: '' }); }} className="w-full py-4 text-slate-500 hover:text-slate-700 font-bold transition-all">
+                                New Patient
                             </button>
                         </div>
                     </div>

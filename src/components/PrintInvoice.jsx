@@ -161,7 +161,7 @@ const PrintInvoice = () => {
 
                 {/* Footer */}
                 <footer className="mt-8 pt-4 border-t border-slate-200 text-center text-[10px] text-slate-400">
-                    <p className="mb-1">Thank you for choosing LIMSPro Labs.</p>
+                    <p className="mb-1">Thank you for choosing GreenHealth Lab.</p>
                 </footer>
             </div>
         </>

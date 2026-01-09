@@ -151,14 +151,12 @@ const Inventory = () => {
                     <p className="text-slate-500">Track stock levels, consumables, and expiry dates.</p>
                 </div>
                 <div className="flex gap-3">
-                    {items.length === 0 && (
-                        <button
-                            onClick={handleInitializeStock}
-                            className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl font-bold flex items-center hover:bg-emerald-200 transition-colors"
-                        >
-                            <Package className="h-5 w-5 mr-2" /> Initialize Stock
-                        </button>
-                    )}
+                    <button
+                        onClick={handleInitializeStock}
+                        className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl font-bold flex items-center hover:bg-emerald-200 transition-colors"
+                    >
+                        <Package className="h-5 w-5 mr-2" /> Initialize Stock
+                    </button>
                     <button
                         onClick={() => { resetForm(); setIsModalOpen(true); }}
                         className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold flex items-center shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors"

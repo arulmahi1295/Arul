@@ -32,7 +32,7 @@ const PrintPatientCard = () => {
             <div className="border-2 border-slate-800 rounded-xl w-[85mm] h-[54mm] relative overflow-hidden flex flex-col bg-white print:border-2">
                 {/* Header */}
                 <div className="bg-slate-900 text-white px-4 py-2 flex justify-between items-center">
-                    <h1 className="font-bold text-sm tracking-wide">LIMSPro Labs</h1>
+                    <h1 className="font-bold text-sm tracking-wide">GreenHealth Lab</h1>
                     <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded">PATIENT CARD</span>
                 </div>
 
