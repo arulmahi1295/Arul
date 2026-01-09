@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Letterhead from './Letterhead';
 import { storage } from '../data/storage';
+import { TEST_CATALOG } from '../data/testCatalog';
 
 const PrintReport = () => {
     const location = useLocation();
@@ -107,8 +108,9 @@ const PrintReport = () => {
 
             {/* Results Table */}
             <div className="mb-12">
-                <div className="bg-indigo-900 text-white px-4 py-2 text-sm font-bold uppercase tracking-wider mb-0 print:bg-slate-200 print:text-black">
-                    HEMATOLOGY
+                <div className="bg-white border-b-2 border-slate-200 px-4 py-2 flex justify-between items-center text-sm font-bold text-slate-800">
+                    <span>TEST RESULTS</span>
+                    <span className="text-xs font-normal text-slate-400">Grouped by Department</span>
                 </div>
                 <table className="w-full text-sm text-left border-collapse">
                     <thead>
@@ -120,55 +122,82 @@ const PrintReport = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {reportData.tests && reportData.tests.map((test, i) => {
-                            const checkAbnormal = (val, range) => {
-                                if (!range || !val) return null;
-                                // Simple distinct numeric range check "min - max"
-                                const rangeMatch = range.match(/([0-9.]+)\s*-\s*([0-9.]+)/);
-                                if (rangeMatch) {
-                                    const min = parseFloat(rangeMatch[1]);
-                                    const max = parseFloat(rangeMatch[2]);
-                                    const numVal = parseFloat(val);
-                                    if (!isNaN(numVal)) {
-                                        if (numVal < min) return 'LOW';
-                                        if (numVal > max) return 'HIGH';
-                                    }
-                                }
-                                // Check for simple bounds like "< 5.0"
-                                const lessMatch = range.match(/<\s*([0-9.]+)/);
-                                if (lessMatch) {
-                                    const max = parseFloat(lessMatch[1]);
-                                    const numVal = parseFloat(val);
-                                    if (!isNaN(numVal) && numVal > max) return 'HIGH';
-                                }
-                                return null;
-                            };
 
-                            const status = checkAbnormal(test.result, test.refRange);
+                        {/* Group tests by category */}
+                        {(() => {
+                            if (!reportData.tests) return null;
 
-                            return (
-                                <tr key={i} className="print:break-inside-avoid">
-                                    <td className="py-3 pl-4">
-                                        <p className="font-semibold">{test.name}</p>
-                                        <p className="text-xs text-slate-400">Method: {test.method}</p>
-                                    </td>
-                                    <td className="py-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-bold ${status ? 'text-red-600' : 'text-slate-800'}`}>
-                                                {test.result}
-                                            </span>
-                                            {status && (
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${status === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                    {status}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-3 text-slate-500">{test.unit}</td>
-                                    <td className="py-3 pr-4 text-right text-slate-600 whitespace-pre-wrap">{test.refRange}</td>
-                                </tr>
-                            );
-                        })}
+                            // 1. Grouping
+                            const grouped = {};
+                            reportData.tests.forEach(test => {
+                                // Find full test details in catalog to get category
+                                const catalogItem = TEST_CATALOG.find(t => t.name === test.name) || {};
+                                const category = catalogItem.category || 'Other Tests';
+
+                                if (!grouped[category]) {
+                                    grouped[category] = [];
+                                }
+                                grouped[category].push({ ...test, refRange: test.refRange || catalogItem.defaultRefRange });
+                            });
+
+                            // 2. Rendering
+                            return Object.keys(grouped).sort().map(category => (
+                                <React.Fragment key={category}>
+                                    <tr className="bg-slate-100/50 print:bg-slate-200">
+                                        <td colSpan="4" className="py-2 pl-4 font-bold text-slate-800 uppercase text-xs tracking-wider">
+                                            {category}
+                                        </td>
+                                    </tr>
+                                    {grouped[category].map((test, i) => {
+                                        const checkAbnormal = (val, range) => {
+                                            if (!range || !val) return null;
+                                            const rangeMatch = range.match(/([0-9.]+)\s*-\s*([0-9.]+)/);
+                                            if (rangeMatch) {
+                                                const min = parseFloat(rangeMatch[1]);
+                                                const max = parseFloat(rangeMatch[2]);
+                                                const numVal = parseFloat(val);
+                                                if (!isNaN(numVal)) {
+                                                    if (numVal < min) return 'LOW';
+                                                    if (numVal > max) return 'HIGH';
+                                                }
+                                            }
+                                            const lessMatch = range.match(/<\s*([0-9.]+)/);
+                                            if (lessMatch) {
+                                                const max = parseFloat(lessMatch[1]);
+                                                const numVal = parseFloat(val);
+                                                if (!isNaN(numVal) && numVal > max) return 'HIGH';
+                                            }
+                                            return null;
+                                        };
+
+                                        const status = checkAbnormal(test.result, test.refRange);
+
+                                        return (
+                                            <tr key={`${category}-${i}`} className="print:break-inside-avoid">
+                                                <td className="py-3 pl-4">
+                                                    <p className="font-semibold">{test.name}</p>
+                                                    <p className="text-xs text-slate-400">Method: {test.method}</p>
+                                                </td>
+                                                <td className="py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-bold ${status ? 'text-red-600' : 'text-slate-800'}`}>
+                                                            {test.result}
+                                                        </span>
+                                                        {status && (
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${status === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                {status}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 text-slate-500">{test.unit}</td>
+                                                <td className="py-3 pr-4 text-right text-slate-600 whitespace-pre-wrap">{test.refRange}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            ));
+                        })()}
                     </tbody>
                 </table>
             </div>

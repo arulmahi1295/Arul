@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, Beaker, FileText, Menu, X, Activity, DollarSign, Shield, LogOut, Car, History, Leaf } from 'lucide-react';
+import { LayoutDashboard, UserPlus, Beaker, FileText, Menu, X, Activity, DollarSign, Shield, LogOut, Car, History, Leaf, Package } from 'lucide-react';
 import { storage } from '../data/storage';
 
 const Layout = ({ onLogout }) => {
@@ -25,6 +25,7 @@ const Layout = ({ onLogout }) => {
         { name: 'Accession', href: '/accession', icon: Activity },
         { name: 'Reports', href: '/reports', icon: FileText },
         { name: 'Finance', href: '/finance', icon: DollarSign },
+        { name: 'Inventory', href: '/inventory', icon: Package },
         { name: 'Admin', href: '/admin', icon: Shield },
     ];
 

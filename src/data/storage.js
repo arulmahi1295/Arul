@@ -18,7 +18,8 @@ const COLLECTIONS = {
     USERS: 'users',
     REFERRALS: 'referrals',
     HOME_COLLECTIONS: 'home_collections',
-    SETTINGS: 'settings'
+    SETTINGS: 'settings',
+    INVENTORY: 'inventory'
 };
 
 export const storage = {
@@ -218,5 +219,43 @@ export const storage = {
             await updateDoc(snap.docs[0].ref, settings);
         }
         return settings;
+    },
+
+    // Inventory Methods
+    getInventory: async () => {
+        const snap = await getDocs(collection(db, COLLECTIONS.INVENTORY));
+        return snap.docs.map(d => ({ ...d.data(), firebaseId: d.id }));
+    },
+    saveInventoryItem: async (item) => {
+        const newItem = {
+            ...item,
+            lastUpdated: new Date().toISOString()
+        };
+        // If no ID provided, generate one
+        if (!newItem.id) {
+            const random = Math.floor(Math.random() * 10000);
+            newItem.id = `INV-${String(random).padStart(4, '0')}`;
+        }
+
+        await addDoc(collection(db, COLLECTIONS.INVENTORY), newItem);
+        return newItem;
+    },
+    updateInventoryItem: async (id, updates) => {
+        const q = query(collection(db, COLLECTIONS.INVENTORY), where('id', '==', id));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            const docRef = snap.docs[0].ref;
+            const updatedData = { ...updates, lastUpdated: new Date().toISOString() };
+            await updateDoc(docRef, updatedData);
+            return { ...snap.docs[0].data(), ...updatedData };
+        }
+        return null;
+    },
+    deleteInventoryItem: async (id) => {
+        const q = query(collection(db, COLLECTIONS.INVENTORY), where('id', '==', id));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            await deleteDoc(snap.docs[0].ref);
+        }
     }
 };

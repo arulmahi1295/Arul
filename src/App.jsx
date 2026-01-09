@@ -13,6 +13,7 @@ const Reports = React.lazy(() => import('./pages/Reports'));
 const Finance = React.lazy(() => import('./pages/Finance'));
 const Admin = React.lazy(() => import('./pages/Admin'));
 const HomeCollection = React.lazy(() => import('./pages/HomeCollection'));
+const Inventory = React.lazy(() => import('./pages/Inventory'));
 
 // Print Components (Keep normally loaded or lazy? Lazy is fine)
 const PrintInvoice = React.lazy(() => import('./components/PrintInvoice'));
@@ -74,6 +75,7 @@ function App() {
             <Route path="/finance" element={<Finance />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="home-collection" element={<HomeCollection />} />
+            <Route path="/inventory" element={<Inventory />} />
           </Route>
 
           {/* Print Routes (Ideally protected too, but can be open for ease of window.open) */}
