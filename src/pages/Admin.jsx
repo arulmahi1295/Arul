@@ -364,7 +364,7 @@ const ReferralManagement = ({ referrals, onSave, onDelete }) => {
     );
 };
 
-const LabConfiguration = ({ signature, onUpload, onDeleteSignature }) => (
+const LabConfiguration = ({ pathologistSignature, labTechSignature, onUploadPathologist, onDeletePathologist, onUploadLabTech, onDeleteLabTech }) => (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl">
         <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-800">Lab Configuration</h2>
@@ -372,17 +372,18 @@ const LabConfiguration = ({ signature, onUpload, onDeleteSignature }) => (
         </div>
 
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+            {/* Pathologist Section */}
             <h3 className="font-bold text-slate-800 mb-6 flex items-center">
                 <PenTool className="h-5 w-5 mr-3 text-indigo-600" />
-                Digital Signature
+                Pathologist Signature
             </h3>
-            <div className="space-y-6">
+            <div className="space-y-6 mb-12 border-b border-slate-100 pb-12">
                 <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                    {signature ? (
+                    {pathologistSignature ? (
                         <div className="relative inline-block group">
-                            <img src={signature} alt="Signature" className="h-24 object-contain mx-auto bg-white rounded-lg p-2 shadow-sm" />
+                            <img src={pathologistSignature} alt="Pathologist Signature" className="h-24 object-contain mx-auto bg-white rounded-lg p-2 shadow-sm" />
                             <button
-                                onClick={onDeleteSignature}
+                                onClick={onDeletePathologist}
                                 className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full shadow-lg hover:bg-rose-600 transition-colors"
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -400,13 +401,51 @@ const LabConfiguration = ({ signature, onUpload, onDeleteSignature }) => (
                         </div>
                     )}
                 </div>
-
                 <div>
                     <label className="block w-full cursor-pointer bg-white border-2 border-dashed border-indigo-200 rounded-xl p-8 text-center hover:bg-indigo-50/50 hover:border-indigo-300 transition-all">
                         <Upload className="h-8 w-8 text-indigo-400 mx-auto mb-2" />
-                        <span className="block text-sm font-bold text-indigo-600">Click to Upload Signature</span>
+                        <span className="block text-sm font-bold text-indigo-600">Click to Upload Pathologist Signature</span>
                         <span className="block text-xs text-slate-400 mt-1">Supports PNG, JPG (Max 2MB)</span>
-                        <input type="file" accept="image/*" onChange={onUpload} className="hidden" />
+                        <input type="file" accept="image/*" onChange={onUploadPathologist} className="hidden" />
+                    </label>
+                </div>
+            </div>
+
+            {/* Lab Technician Section */}
+            <h3 className="font-bold text-slate-800 mb-6 flex items-center">
+                <Users className="h-5 w-5 mr-3 text-emerald-600" />
+                Lab Technician Signature
+            </h3>
+            <div className="space-y-6">
+                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                    {labTechSignature ? (
+                        <div className="relative inline-block group">
+                            <img src={labTechSignature} alt="Lab Tech Signature" className="h-24 object-contain mx-auto bg-white rounded-lg p-2 shadow-sm" />
+                            <button
+                                onClick={onDeleteLabTech}
+                                className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full shadow-lg hover:bg-rose-600 transition-colors"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                            <p className="text-xs text-emerald-600 font-bold mt-4 flex items-center justify-center">
+                                <Shield className="h-3 w-3 mr-1" />
+                                Signature Active
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="text-slate-400">
+                            <FileSignature className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                            <p className="text-sm font-medium">No signature uploaded</p>
+                            <p className="text-xs mt-1">Upload a transparent PNG for automatic signing</p>
+                        </div>
+                    )}
+                </div>
+                <div>
+                    <label className="block w-full cursor-pointer bg-white border-2 border-dashed border-emerald-200 rounded-xl p-8 text-center hover:bg-emerald-50/50 hover:border-emerald-300 transition-all">
+                        <Upload className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
+                        <span className="block text-sm font-bold text-emerald-600">Click to Upload Lab Tech Signature</span>
+                        <span className="block text-xs text-slate-400 mt-1">Supports PNG, JPG (Max 2MB)</span>
+                        <input type="file" accept="image/*" onChange={onUploadLabTech} className="hidden" />
                     </label>
                 </div>
             </div>
@@ -503,7 +542,8 @@ const Admin = () => {
         logs: [],
         users: [],
         referrals: [],
-        signature: null
+        signature: null,
+        labTechSignature: null
     });
 
     useEffect(() => {
@@ -529,7 +569,7 @@ const Admin = () => {
                 order.tests.forEach(test => {
                     totalMRP += (Number(test.price) || 0);
                     const catalogTest = TEST_CATALOG.find(t => t.id == test.id || t.code === test.code);
-                    const l2lPrice = catalogTest?.l2lPrice || test.l2lPrice;
+                    const l2lPrice = catalogTest?.l2lPrice;
                     const cost = l2lPrice || ((Number(test.price) || 0) * 0.40); // 40% fallback
                     totalCost += cost;
                 });
@@ -567,7 +607,8 @@ const Admin = () => {
             logs: allLogs,
             users,
             referrals,
-            signature: settings?.signature
+            signature: settings?.signature,
+            labTechSignature: settings?.labTechSignature
         });
     };
 
@@ -630,7 +671,7 @@ const Admin = () => {
             try {
                 await storage.saveSettings({ signature: base64 });
                 loadAllData();
-                alert('Signature uploaded successfully!');
+                alert('Pathologist Signature uploaded successfully!');
             } catch (error) {
                 console.error("Upload failed", error);
                 alert(`Upload failed: ${error.message}`);
@@ -641,6 +682,37 @@ const Admin = () => {
 
     const handleDeleteSignature = async () => {
         await storage.saveSettings({ signature: null });
+        loadAllData();
+    };
+
+    const handleLabTechUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const MAX_SIZE = 500 * 1024;
+        if (file.size > MAX_SIZE) {
+            alert(`File is too large (${(file.size / 1024).toFixed(0)}KB). Please upload a smaller image (max 500KB).`);
+            e.target.value = null;
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64 = reader.result;
+            try {
+                await storage.saveSettings({ labTechSignature: base64 });
+                loadAllData();
+                alert('Lab Technician Signature uploaded successfully!');
+            } catch (error) {
+                console.error("Upload failed", error);
+                alert(`Upload failed: ${error.message}`);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleDeleteLabTech = async () => {
+        await storage.saveSettings({ labTechSignature: null });
         loadAllData();
     };
 
@@ -798,7 +870,14 @@ const Admin = () => {
                 {activeTab === 'dashboard' && <DashboardView stats={data.stats} logs={data.logs} />}
                 {activeTab === 'employees' && <EmployeeManagement users={data.users} onSave={handleUserSave} onDelete={handleUserDelete} onEdit={/* Logic handled in component state, but needs connection */ null} />}
                 {activeTab === 'referrals' && <ReferralManagement referrals={data.referrals} onSave={handleReferralSave} onDelete={handleReferralDelete} />}
-                {activeTab === 'config' && <LabConfiguration signature={data.signature} onUpload={handleSignatureUpload} onDeleteSignature={handleDeleteSignature} />}
+                {activeTab === 'config' && <LabConfiguration
+                    pathologistSignature={data.signature}
+                    labTechSignature={data.labTechSignature}
+                    onUploadPathologist={handleSignatureUpload}
+                    onDeletePathologist={handleDeleteSignature}
+                    onUploadLabTech={handleLabTechUpload}
+                    onDeleteLabTech={handleDeleteLabTech}
+                />}
                 {activeTab === 'data' && <DataManagement onExport={handleExport} onImport={handleImport} onFactoryReset={handleFactoryReset} />}
             </div>
         </div>

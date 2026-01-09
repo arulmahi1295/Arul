@@ -7,12 +7,14 @@ const PrintReport = () => {
     const location = useLocation();
     const [reportData, setReportData] = useState(null);
     const [signature, setSignature] = useState(null);
+    const [labTechSignature, setLabTechSignature] = useState(null);
 
     useEffect(() => {
         const loadSettings = async () => {
             const settings = await storage.getSettings();
-            if (settings && settings.signature) {
-                setSignature(settings.signature);
+            if (settings) {
+                if (settings.signature) setSignature(settings.signature);
+                if (settings.labTechSignature) setLabTechSignature(settings.labTechSignature);
             }
         };
         loadSettings();
@@ -174,7 +176,14 @@ const PrintReport = () => {
             {/* Footer / Disclaimer */}
             <footer className="mt-auto border-t-2 border-slate-100 pt-4 print:fixed print:bottom-0 print:left-8 print:right-8 print:bg-white">
                 <div className="flex justify-end items-end mb-4">
-                    <div className="text-center">
+                    <div className="text-center relative">
+                        {labTechSignature && (
+                            <img
+                                src={labTechSignature}
+                                alt="Lab Tech Signature"
+                                className="absolute bottom-8 left-1/2 -translate-x-1/2 h-12 object-contain mix-blend-multiply opacity-90"
+                            />
+                        )}
                         <div className="h-12 w-32 mb-2 border-b border-dashed border-slate-300"></div>
                         <p className="font-bold text-xs text-slate-800">Lab Technician</p>
                     </div>
