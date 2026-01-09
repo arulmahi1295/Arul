@@ -43,13 +43,16 @@ const Dashboard = () => {
             const now = new Date();
             let startDate = new Date(0); // Default fallback
 
+            // Reset time to start of day/period for accurate comparison
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
             if (chartPeriod === 'day') {
-                startDate = new Date(now.setHours(0, 0, 0, 0));
+                startDate = today;
             } else if (chartPeriod === 'week') {
                 // Last 7 days
-                const d = new Date();
+                const d = new Date(today);
                 d.setDate(d.getDate() - 6);
-                d.setHours(0, 0, 0, 0);
                 startDate = d;
             } else if (chartPeriod === 'month') {
                 // Start of current month
@@ -59,7 +62,11 @@ const Dashboard = () => {
                 startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
             }
 
-            const filterByDate = (item) => new Date(item.createdAt) >= startDate;
+            const filterByDate = (item) => {
+                if (!item.createdAt) return false;
+                const itemDate = new Date(item.createdAt);
+                return itemDate >= startDate;
+            };
 
             const filteredPatients = allPatients.filter(filterByDate);
             const filteredOrders = allOrders.filter(filterByDate);
@@ -84,12 +91,19 @@ const Dashboard = () => {
 
     const processChartData = (orders, period) => {
         const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         let data = [];
 
         if (period === 'day') {
             // Hourly for Today
-            const todayStr = now.toISOString().split('T')[0];
-            const todayOrders = orders.filter(o => o.createdAt.startsWith(todayStr));
+            const todayOrders = orders.filter(o => {
+                if (!o.createdAt) return false;
+                const d = new Date(o.createdAt);
+                return d >= today && d < new Date(today.getTime() + 86400000);
+            });
+
             // Initialize 24 hours
             const hours = Array.from({ length: 24 }, (_, i) => ({
                 name: `${i}:00`,
@@ -99,21 +113,30 @@ const Dashboard = () => {
 
             todayOrders.forEach(o => {
                 const hour = new Date(o.createdAt).getHours();
-                hours[hour].orders += 1;
-                hours[hour].revenue += (o.totalAmount || 0);
+                if (hours[hour]) {
+                    hours[hour].orders += 1;
+                    hours[hour].revenue += (o.totalAmount || 0);
+                }
             });
-            // Filter to show only up to current hour or all? Let's show representative hours (e.g. 8-20) or all
-            data = hours.filter((_, i) => i >= 6 && i <= 22); // Show 6 AM to 10 PM
+            // Show meaningful hours (e.g., 6 AM - 10 PM)
+            data = hours.filter((_, i) => i >= 6 && i <= 22);
         }
         else if (period === 'week') {
             // Last 7 Days
             for (let i = 6; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(now.getDate() - i);
-                const dStr = d.toISOString().split('T')[0];
-                const label = d.toLocaleDateString('en-US', { weekday: 'short' });
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
 
-                const dayOrders = orders.filter(o => o.createdAt.startsWith(dStr));
+                // Compare date parts
+                const dayOrders = orders.filter(o => {
+                    if (!o.createdAt) return false;
+                    const orderDate = new Date(o.createdAt);
+                    return orderDate.getDate() === d.getDate() &&
+                        orderDate.getMonth() === d.getMonth() &&
+                        orderDate.getFullYear() === d.getFullYear();
+                });
+
+                const label = d.toLocaleDateString('en-US', { weekday: 'short' });
                 const rev = dayOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
 
                 data.push({ name: label, orders: dayOrders.length, revenue: rev });
@@ -123,11 +146,14 @@ const Dashboard = () => {
             // Days of Current Month
             const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
             for (let i = 1; i <= daysInMonth; i++) {
-                const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                // Only add if date is past or today? Or prepare full month structure.
-                if (new Date(dStr) > now) break;
+                const targetDate = new Date(now.getFullYear(), now.getMonth(), i);
+                if (targetDate > now) break; // Don't show future days
 
-                const dayOrders = orders.filter(o => o.createdAt.startsWith(dStr));
+                const dayOrders = orders.filter(o => {
+                    const d = new Date(o.createdAt);
+                    return d.getDate() === i && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                });
+
                 const rev = dayOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
                 data.push({ name: i, orders: dayOrders.length, revenue: rev });
             }
@@ -136,12 +162,13 @@ const Dashboard = () => {
             // Last 3 Months
             for (let i = 2; i >= 0; i--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                const mStr = String(d.getMonth() + 1).padStart(2, '0');
-                const yStr = d.getFullYear();
-                const label = d.toLocaleDateString('en-US', { month: 'short' });
 
-                // Filter orders for this yyyy-mm
-                const monthOrders = orders.filter(o => o.createdAt.startsWith(`${yStr}-${mStr}`));
+                const monthOrders = orders.filter(o => {
+                    const orderDate = new Date(o.createdAt);
+                    return orderDate.getMonth() === d.getMonth() && orderDate.getFullYear() === d.getFullYear();
+                });
+
+                const label = d.toLocaleDateString('en-US', { month: 'short' });
                 const rev = monthOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
 
                 data.push({ name: label, orders: monthOrders.length, revenue: rev });

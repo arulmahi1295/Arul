@@ -34,6 +34,8 @@ const PatientRegistration = () => {
     const [errors, setErrors] = useState({});
     const [savedPatientId, setSavedPatientId] = useState(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
 
     const validateForm = () => {
         const newErrors = {};
@@ -59,11 +61,13 @@ const PatientRegistration = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setSubmitError(null);
 
         if (!validateForm()) return;
 
         // Generate ID and save to storage
         const save = async () => {
+            setIsSaving(true);
             try {
                 const patientId = await storage.getNextPatientId();
                 const patientData = { ...formData, id: patientId };
@@ -75,7 +79,10 @@ const PatientRegistration = () => {
                 setShowSuccessModal(true);
             } catch (error) {
                 console.error("Failed to save patient", error);
-                // Optionally set an error state here
+                setSubmitError("Failed to save patient. Please check your internet connection.");
+                alert("Error saving patient: " + (error.message || "Unknown error"));
+            } finally {
+                setIsSaving(false);
             }
         };
         save();
@@ -384,31 +391,46 @@ const PatientRegistration = () => {
                     </div>
                 </div>
 
-                <div className="bg-slate-50 px-8 py-4 flex items-center justify-end border-t border-slate-100">
-                    <button
-                        type="button"
-                        className="mr-3 px-6 py-2.5 text-sm font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
-                        onClick={() => setFormData({
-                            fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '',
-                            bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash',
-                            source: 'Walk-in', referralId: ''
-                        })}
-                    >
-                        Reset
-                    </button>
-                    <button
-                        type="submit"
-                        className={`px-6 py-2.5 text-sm font-medium text-white rounded-lg transition-all shadow-md hover:shadow-lg flex items-center ${isSubmitted ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                    >
-                        {isSubmitted ? (
-                            <>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Registered Successfully
-                            </>
-                        ) : (
-                            'Register Patient'
-                        )}
-                    </button>
+                <div className="flex flex-col items-end">
+                    {submitError && <p className="text-sm text-rose-600 mb-2 font-medium">{submitError}</p>}
+                    <div className="flex">
+                        <button
+                            type="button"
+                            className="mr-3 px-6 py-2.5 text-sm font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
+                            onClick={() => setFormData({
+                                fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '',
+                                bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash',
+                                source: 'Walk-in', referralId: ''
+                            })}
+                            disabled={isSaving || isSubmitted}
+                        >
+                            Reset
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSaving || isSubmitted}
+                            className={`px-6 py-2.5 text-sm font-medium text-white rounded-lg transition-all shadow-md hover:shadow-lg flex items-center ${isSubmitted ? 'bg-emerald-500 hover:bg-emerald-600' :
+                                    isSaving ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                                }`}
+                        >
+                            {isSubmitted ? (
+                                <>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Registered Successfully
+                                </>
+                            ) : isSaving ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Registering...
+                                </>
+                            ) : (
+                                'Register Patient'
+                            )}
+                        </button>
+                    </div>
                 </div>
             </form>
 
