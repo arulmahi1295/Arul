@@ -129,7 +129,7 @@ const Dashboard = () => {
                 d.setDate(d.getDate() - i);
                 const dayOrders = orders.filter(o => {
                     const od = new Date(o.createdAt);
-                    return od.getDate() === d.getDate() && od.getMonth() === d.getMonth();
+                    return od.getDate() === d.getDate() && od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear();
                 });
                 data.push({
                     name: d.toLocaleDateString('en-US', { weekday: 'short' }),
@@ -137,9 +137,43 @@ const Dashboard = () => {
                     orders: dayOrders.length
                 });
             }
+        } else if (period === 'month') {
+            // Last 30 days
+            for (let i = 29; i >= 0; i--) { // Show every 2nd day to avoid crowding or just aggregation
+                // Actually, let's just do all days but format XAxis to show fewer ticks if needed, 
+                // or maybe just do weeks? 
+                // User likely expects "Monthly View" meaning "This Month" broken down by day, or "Last 30 Days"
+                // Let's do "Last 30 Days" but aggregated? No, usually "Month" view in these dashboards means day-by-day for the current month.
+                // Let's do Day-by-day for the last 30 days.
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dayOrders = orders.filter(o => {
+                    const od = new Date(o.createdAt);
+                    return od.getDate() === d.getDate() && od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear();
+                });
+                data.push({
+                    name: d.getDate(), // Just the date number
+                    fullDate: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    revenue: dayOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0),
+                    orders: dayOrders.length
+                });
+            }
+        } else if (period === 'year') {
+            // Last 12 months
+            for (let i = 11; i >= 0; i--) {
+                const d = new Date(today);
+                d.setMonth(d.getMonth() - i);
+                const monthOrders = orders.filter(o => {
+                    const od = new Date(o.createdAt);
+                    return od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear();
+                });
+                data.push({
+                    name: d.toLocaleDateString('en-US', { month: 'short' }),
+                    revenue: monthOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0),
+                    orders: monthOrders.length
+                });
+            }
         }
-        // ... (keep other periods simple or similar logic for brevity in this overhaul)
-        // Defaulting to week logic for now as it's the most used
 
         setChartData(data);
     };
@@ -223,27 +257,78 @@ const Dashboard = () => {
                     </div>
                     <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <AreaChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
+                                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                                        <feMerge>
+                                            <feMergeNode in="coloredBlur" />
+                                            <feMergeNode in="SourceGraphic" />
+                                        </feMerge>
+                                    </filter>
                                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
-                                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3} />   {/* Increased opacity */}
+                                        <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
                                     </linearGradient>
                                     <linearGradient id="colorOrd" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />   {/* Increased opacity */}
                                         <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                                <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 11, fill: '#94a3b8', fontFamily: 'Plus Jakarta Sans', opacity: 0.7 }}
+                                    dy={10}
+                                />
+                                <YAxis
+                                    yAxisId="left"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 11, fill: '#94a3b8', fontFamily: 'Plus Jakarta Sans', opacity: 0.7 }}
+                                    tickFormatter={(value) => `₹${value}`}
+                                />
                                 <YAxis yAxisId="right" orientation="right" hide />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.1)' }}
-                                    itemStyle={{ fontSize: '12px', fontWeight: 600 }}
+                                    contentStyle={{
+                                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                                        backdropFilter: 'blur(8px)',
+                                        borderRadius: '16px',
+                                        border: '1px solid rgba(255,255,255,0.4)',
+                                        boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                                        fontFamily: 'Plus Jakarta Sans',
+                                        padding: '12px 16px'
+                                    }}
+                                    itemStyle={{ color: '#0f766e', fontWeight: 700, fontSize: '12px' }}
+                                    labelStyle={{ color: '#64748b', fontSize: '11px', fontWeight: 600, marginBottom: '4px' }}
+                                    cursor={{ stroke: '#14b8a6', strokeWidth: 1, strokeDasharray: '4 4' }}
                                 />
-                                <Area yAxisId="left" type="monotone" dataKey="revenue" name="Revenue (₹)" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-                                <Area yAxisId="right" type="monotone" dataKey="orders" name="Orders" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorOrd)" />
+                                <Area
+                                    yAxisId="left"
+                                    type="monotone"
+                                    dataKey="revenue"
+                                    name="Revenue (₹)"
+                                    stroke="#14b8a6"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorRev)"
+                                    filter="url(#glow)"
+                                    activeDot={{ r: 6, strokeWidth: 4, stroke: '#fff', fill: '#14b8a6' }}
+                                />
+                                <Area
+                                    yAxisId="right"
+                                    type="monotone"
+                                    dataKey="orders"
+                                    name="Orders"
+                                    stroke="#6366f1"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorOrd)"
+                                    filter="url(#glow)"
+                                    activeDot={{ r: 6, strokeWidth: 4, stroke: '#fff', fill: '#6366f1' }}
+                                />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
