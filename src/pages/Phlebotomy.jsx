@@ -7,6 +7,7 @@ import { storage } from '../data/storage';
 import { useDebounce } from '../hooks/useDebounce';
 import { TEST_CATALOG } from '../data/testCatalog';
 import EditPatientModal from '../components/EditPatientModal';
+import { logOrder } from '../utils/activityLogger';
 
 const MOCK_TESTS = TEST_CATALOG;
 
@@ -280,8 +281,12 @@ const Phlebotomy = () => {
 
         if (editingOrder) {
             await storage.updateOrder(orderData.id, orderData);
+            // Log order update
+            await logOrder.updated(orderData.id, { tests: enrichedTests.length, amount: calculateTotal() });
         } else {
             await storage.saveOrder(orderData);
+            // Log order creation
+            await logOrder.created(orderData.id, selectedPatient.name, enrichedTests);
         }
 
         setLastOrder(orderData);

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag } from 'lucide-react';
+import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag, ClipboardList, Filter, Search, Calendar, User as UserIcon } from 'lucide-react';
 import { storage } from '../data/storage';
 import { TEST_CATALOG } from '../data/testCatalog';
 import TestPricingManager from '../components/TestPricingManager';
 import ReferralPriceManager from '../components/ReferralPriceManager'; // New Import
+import { logAdmin } from '../utils/activityLogger';
 
 // --- Sub-Components ---
 
@@ -624,6 +625,274 @@ const DataManagement = ({ onExport, onImport, onFactoryReset }) => {
     );
 };
 
+// Activity Logs Viewer Component
+const ActivityLogsView = () => {
+    const [logs, setLogs] = useState([]);
+    const [filteredLogs, setFilteredLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState({
+        search: '',
+        module: 'all',
+        severity: 'all',
+        dateFrom: '',
+        dateTo: ''
+    });
+
+    useEffect(() => {
+        loadLogs();
+    }, []);
+
+    useEffect(() => {
+        applyFilters();
+    }, [logs, filters]);
+
+    const loadLogs = async () => {
+        setLoading(true);
+        const activityLogs = await storage.getRecentActivityLogs(500);
+        setLogs(activityLogs);
+        setLoading(false);
+    };
+
+    const applyFilters = () => {
+        let filtered = [...logs];
+
+        // Search filter
+        if (filters.search) {
+            const searchLower = filters.search.toLowerCase();
+            filtered = filtered.filter(log =>
+                log.details?.toLowerCase().includes(searchLower) ||
+                log.username?.toLowerCase().includes(searchLower) ||
+                log.action?.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Module filter
+        if (filters.module !== 'all') {
+            filtered = filtered.filter(log => log.module === filters.module);
+        }
+
+        // Severity filter
+        if (filters.severity !== 'all') {
+            filtered = filtered.filter(log => log.severity === filters.severity);
+        }
+
+        // Date filters
+        if (filters.dateFrom) {
+            filtered = filtered.filter(log => log.timestamp >= filters.dateFrom);
+        }
+        if (filters.dateTo) {
+            filtered = filtered.filter(log => log.timestamp <= filters.dateTo + 'T23:59:59');
+        }
+
+        setFilteredLogs(filtered);
+    };
+
+    const getSeverityColor = (severity) => {
+        switch (severity) {
+            case 'INFO': return 'bg-blue-50 text-blue-700 border-blue-200';
+            case 'WARNING': return 'bg-amber-50 text-amber-700 border-amber-200';
+            case 'ERROR': return 'bg-red-50 text-red-700 border-red-200';
+            case 'CRITICAL': return 'bg-rose-50 text-rose-700 border-rose-200';
+            default: return 'bg-slate-50 text-slate-700 border-slate-200';
+        }
+    };
+
+    const getModuleColor = (module) => {
+        const colors = {
+            'AUTHENTICATION': 'bg-purple-100 text-purple-700',
+            'PATIENT_MANAGEMENT': 'bg-blue-100 text-blue-700',
+            'PHLEBOTOMY': 'bg-teal-100 text-teal-700',
+            'REPORTS': 'bg-indigo-100 text-indigo-700',
+            'FINANCE': 'bg-emerald-100 text-emerald-700',
+            'ADMIN': 'bg-rose-100 text-rose-700',
+            'SYSTEM': 'bg-slate-100 text-slate-700'
+        };
+        return colors[module] || 'bg-gray-100 text-gray-700';
+    };
+
+    const exportToCSV = () => {
+        const headers = ['Timestamp', 'User', 'Role', 'Action', 'Details', 'Module', 'Severity'];
+        const rows = filteredLogs.map(log => [
+            new Date(log.timestamp).toLocaleString(),
+            log.username,
+            log.userRole,
+            log.action,
+            log.details,
+            log.module,
+            log.severity
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+    };
+
+    return (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Activity Logs</h2>
+                    <p className="text-slate-500">System audit trail and user activity monitoring</p>
+                </div>
+                <button
+                    onClick={exportToCSV}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 flex items-center shadow-lg shadow-indigo-200"
+                >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                </button>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    {/* Search */}
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Search</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search logs..."
+                                value={filters.search}
+                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Module Filter */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Module</label>
+                        <select
+                            value={filters.module}
+                            onChange={(e) => setFilters({ ...filters, module: e.target.value })}
+                            className="w-full p-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none text-sm"
+                        >
+                            <option value="all">All Modules</option>
+                            <option value="AUTHENTICATION">Authentication</option>
+                            <option value="PATIENT_MANAGEMENT">Patient Management</option>
+                            <option value="PHLEBOTOMY">Phlebotomy</option>
+                            <option value="REPORTS">Reports</option>
+                            <option value="FINANCE">Finance</option>
+                            <option value="ADMIN">Admin</option>
+                            <option value="SYSTEM">System</option>
+                        </select>
+                    </div>
+
+                    {/* Severity Filter */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Severity</label>
+                        <select
+                            value={filters.severity}
+                            onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
+                            className="w-full p-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none text-sm"
+                        >
+                            <option value="all">All Levels</option>
+                            <option value="INFO">Info</option>
+                            <option value="WARNING">Warning</option>
+                            <option value="ERROR">Error</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
+                    </div>
+
+                    {/* Date Range */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Date From</label>
+                        <input
+                            type="date"
+                            value={filters.dateFrom}
+                            onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                            className="w-full p-2 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none text-sm"
+                        />
+                    </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-slate-500">
+                        Showing {filteredLogs.length} of {logs.length} logs
+                    </p>
+                    <button
+                        onClick={() => setFilters({ search: '', module: 'all', severity: 'all', dateFrom: '', dateTo: '' })}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold"
+                    >
+                        Clear Filters
+                    </button>
+                </div>
+            </div>
+
+            {/* Logs Table */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                    {loading ? (
+                        <div className="p-12 text-center text-slate-400">Loading logs...</div>
+                    ) : filteredLogs.length === 0 ? (
+                        <div className="p-12 text-center text-slate-400">No logs found</div>
+                    ) : (
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50 sticky top-0 z-10">
+                                <tr className="border-b border-slate-200">
+                                    <th className="text-left p-3 font-bold text-slate-600 text-xs uppercase tracking-wider">Timestamp</th>
+                                    <th className="text-left p-3 font-bold text-slate-600 text-xs uppercase tracking-wider">User</th>
+                                    <th className="text-left p-3 font-bold text-slate-600 text-xs uppercase tracking-wider">Action</th>
+                                    <th className="text-left p-3 font-bold text-slate-600 text-xs uppercase tracking-wider">Details</th>
+                                    <th className="text-left p-3 font-bold text-slate-600 text-xs uppercase tracking-wider">Module</th>
+                                    <th className="text-left p-3 font-bold text-slate-600 text-xs uppercase tracking-wider">Severity</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredLogs.map((log, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50">
+                                        <td className="p-3 text-slate-600 whitespace-nowrap text-xs">
+                                            {new Date(log.timestamp).toLocaleString('en-IN', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-7 w-7 rounded-full bg-indigo-100 flex items-center justify-center">
+                                                    <UserIcon className="h-4 w-4 text-indigo-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-slate-800 text-xs">{log.username}</p>
+                                                    <p className="text-[10px] text-slate-400">{log.userRole}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-3 font-mono text-xs text-slate-600">{log.action}</td>
+                                        <td className="p-3 text-slate-700 text-xs max-w-md truncate">{log.details}</td>
+                                        <td className="p-3">
+                                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${getModuleColor(log.module)}`}>
+                                                {log.module}
+                                            </span>
+                                        </td>
+                                        <td className="p-3">
+                                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${getSeverityColor(log.severity)}`}>
+                                                {log.severity}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Main Layout ---
 
 const Admin = () => {
@@ -732,15 +1001,29 @@ const Admin = () => {
     const handleUserSave = async (userData, isEditing) => {
         if (isEditing && userData.id) {
             await storage.updateUser(userData.id, userData);
+            // Log user update
+            await logAdmin.userUpdated(userData.username, { role: userData.role, department: userData.department });
         } else {
             await storage.saveUser(userData);
+            // Log user creation
+            await logAdmin.userCreated(userData.username, userData.role);
         }
         loadAllData();
     };
 
     const handleUserDelete = async (id) => {
         if (confirm('Remove this user access?')) {
+            // Get user details before deletion for logging
+            const users = await storage.getUsers();
+            const user = users.find(u => u.id === id);
+
             await storage.deleteUser(id);
+
+            // Log user deletion
+            if (user) {
+                await logAdmin.userDeleted(user.username);
+            }
+
             loadAllData();
         }
     };
@@ -966,6 +1249,7 @@ const Admin = () => {
         { id: 'referrals', label: 'Referral Management', icon: UserPlus },
         { id: 'labs', label: 'Outsource Labs', icon: LayoutDashboard },
         { id: 'config', label: 'Lab Configuration', icon: Settings },
+        { id: 'logs', label: 'Activity Logs', icon: ClipboardList },
         { id: 'data', label: 'Data Management', icon: Database },
     ];
 
@@ -1063,6 +1347,7 @@ const Admin = () => {
                                 onUploadWatermark={handleWatermarkUpload}
                                 onDeleteWatermark={() => handleSettingDelete('watermarkImage')}
                             />}
+                            {activeTab === 'logs' && <ActivityLogsView />}
                             {activeTab === 'data' && <DataManagement onExport={handleExport} onImport={handleImport} onFactoryReset={handleFactoryReset} />}
                         </div>
                     </div>

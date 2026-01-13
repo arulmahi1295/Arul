@@ -22,7 +22,8 @@ const COLLECTIONS = {
     OUTSOURCE_LABS: 'outsource_labs',
     HOME_COLLECTIONS: 'home_collections',
     SETTINGS: 'settings',
-    INVENTORY: 'inventory'
+    INVENTORY: 'inventory',
+    ACTIVITY_LOGS: 'activity_logs'
 };
 
 export const storage = {
@@ -381,6 +382,78 @@ export const storage = {
         const snap = await getDocs(q);
         if (!snap.empty) {
             await deleteDoc(snap.docs[0].ref);
+        }
+    },
+
+    // Activity Logs Methods
+    saveActivityLog: async (logEntry) => {
+        try {
+            await addDoc(collection(db, COLLECTIONS.ACTIVITY_LOGS), logEntry);
+        } catch (e) {
+            console.error('Error saving activity log:', e);
+            // Don't throw - logging failures shouldn't break the app
+        }
+    },
+
+    getActivityLogs: async (filters = {}) => {
+        try {
+            let q = collection(db, COLLECTIONS.ACTIVITY_LOGS);
+
+            // Apply filters
+            const constraints = [];
+
+            if (filters.userId) {
+                constraints.push(where('userId', '==', filters.userId));
+            }
+
+            if (filters.action) {
+                constraints.push(where('action', '==', filters.action));
+            }
+
+            if (filters.module) {
+                constraints.push(where('module', '==', filters.module));
+            }
+
+            if (filters.severity) {
+                constraints.push(where('severity', '==', filters.severity));
+            }
+
+            if (filters.startDate) {
+                constraints.push(where('timestamp', '>=', filters.startDate));
+            }
+
+            if (filters.endDate) {
+                constraints.push(where('timestamp', '<=', filters.endDate));
+            }
+
+            // Add ordering
+            constraints.push(orderBy('timestamp', 'desc'));
+
+            if (constraints.length > 0) {
+                q = query(q, ...constraints);
+            }
+
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
+        } catch (e) {
+            console.error('Error fetching activity logs:', e);
+            return [];
+        }
+    },
+
+    // Get recent activity logs (last N entries)
+    getRecentActivityLogs: async (limit = 100) => {
+        try {
+            const q = query(
+                collection(db, COLLECTIONS.ACTIVITY_LOGS),
+                orderBy('timestamp', 'desc')
+            );
+            const snapshot = await getDocs(q);
+            const logs = snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
+            return logs.slice(0, limit);
+        } catch (e) {
+            console.error('Error fetching recent activity logs:', e);
+            return [];
         }
     }
 };

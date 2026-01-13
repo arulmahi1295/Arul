@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Phone, Mail, MapPin, Calendar, CheckCircle, Activity, AlertCircle, CreditCard, Clock, Search, ChevronRight, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../data/storage';
+import { logPatient } from '../utils/activityLogger';
 
 const InputField = ({ label, icon: Icon, error, ...props }) => (
     <div className="group">
@@ -98,6 +99,10 @@ const PatientRegistration = () => {
             const patientId = await storage.getNextPatientId();
             const patientData = { ...formData, id: patientId };
             await storage.savePatient(patientData);
+
+            // Log patient creation
+            await logPatient.created(patientId, formData.fullName);
+
             setSavedPatientId(patientId);
             setIsSubmitted(true);
             setShowSuccessModal(true);

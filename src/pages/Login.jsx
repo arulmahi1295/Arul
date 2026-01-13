@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Beaker, ArrowRight, User, ShieldCheck, Leaf, Activity, Heart, Droplet, Brain, Lock } from 'lucide-react';
 import { storage } from '../data/storage';
+import { logAuth } from '../utils/activityLogger';
 
 const Login = ({ onLogin }) => {
     const navigate = useNavigate();
@@ -79,9 +80,16 @@ const Login = ({ onLogin }) => {
                 };
 
                 localStorage.setItem('lis_auth', JSON.stringify(sessionData));
+
+                // Log successful login
+                await logAuth.loginSuccess(foundUser.username, foundUser.id);
+
                 onLogin(sessionData);
                 navigate('/');
             } else {
+                // Log failed login attempt
+                await logAuth.loginFailed(username, 'Invalid credentials');
+
                 setError('Authentication Failed: Invalid credentials.');
                 setIsLoading(false);
             }
