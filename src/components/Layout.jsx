@@ -1,20 +1,32 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, UserPlus, Beaker, FileText, Menu, X, Activity, DollarSign, Shield, LogOut, Car, History, Leaf, Package } from 'lucide-react';
-import { storage } from '../data/storage';
 
-const Layout = ({ onLogout }) => {
+const Layout = ({ onLogout, userRole }) => {
     const location = useLocation();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+    // We can use the passed userRole, or fallback to local state if needed (mainly for the name)
     const [user, setUser] = React.useState({ name: 'User', role: 'Staff' });
 
     React.useEffect(() => {
         const stored = localStorage.getItem('lis_auth');
         if (stored) {
-            const data = JSON.parse(stored);
-            setUser({ name: data.user || 'Admin', role: data.role || 'Manager' });
+            try {
+                const data = JSON.parse(stored);
+                // Update local user state for display name
+                setUser({
+                    name: data.user || 'User',
+                    role: data.role || 'Staff'
+                });
+            } catch (e) {
+                console.error("Layout Auth Parse Error", e);
+            }
         }
     }, []);
+
+    // Use prop if available, otherwise state
+    const currentRole = userRole || user.role;
 
     const navigation = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -24,9 +36,13 @@ const Layout = ({ onLogout }) => {
         { name: 'Home Visit', href: '/home-collection', icon: Car },
         { name: 'Accession', href: '/accession', icon: Activity },
         { name: 'Reports', href: '/reports', icon: FileText },
-        { name: 'Finance', href: '/finance', icon: DollarSign },
-        { name: 'Inventory', href: '/inventory', icon: Package },
-        { name: 'Admin', href: '/admin', icon: Shield },
+
+        // Conditional Items based on Role
+        ...(currentRole === 'Admin' ? [
+            { name: 'Finance', href: '/finance', icon: DollarSign },
+            { name: 'Inventory', href: '/inventory', icon: Package },
+            { name: 'Admin', href: '/admin', icon: Shield },
+        ] : [])
     ];
 
     return (
@@ -71,7 +87,7 @@ const Layout = ({ onLogout }) => {
                             </div>
                             <div className="ml-3">
                                 <p className="text-xs font-semibold text-slate-700">{user.name}</p>
-                                <p className="text-[10px] text-slate-500">{user.role}</p>
+                                <p className="text-[10px] text-slate-500">{currentRole}</p>
                             </div>
                         </div>
                         <button
@@ -89,17 +105,10 @@ const Layout = ({ onLogout }) => {
             <div className="flex-1 md:ml-64 flex flex-col min-h-screen w-full relative bg-slate-50/50">
                 {/* Premium Background Layer */}
                 <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden md:ml-64">
-                    {/* distinct gradient background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30"></div>
-
-                    {/* Pattern Overlay */}
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.06]"></div>
-
-                    {/* Decorative Gradient Blobs for 'Premium' depth */}
                     <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-100/40 rounded-full blur-3xl transform translate-x-1/3 -translate-y-1/3"></div>
                     <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-teal-100/40 rounded-full blur-3xl transform -translate-x-1/3 translate-y-1/3"></div>
-
-                    {/* Giant Watermark Logo */}
                     <div className="absolute bottom-10 right-10 opacity-[0.07] transform -rotate-12">
                         <Leaf className="h-[30rem] w-[30rem] text-emerald-800" />
                     </div>

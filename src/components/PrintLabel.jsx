@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import JsBarcode from 'jsbarcode';
 import { storage } from '../data/storage';
 
 const PrintLabel = () => {
@@ -8,10 +9,26 @@ const PrintLabel = () => {
     const [patient, setPatient] = useState(null);
 
     useEffect(() => {
+        let orderData = null;
+
         if (location.state && location.state.order) {
-            setOrder(location.state.order);
-            if (location.state.order.patientId) {
-                const rawId = location.state.order.patientId.split(' - ')[0];
+            orderData = location.state.order;
+        } else {
+            // Try sessionStorage (for window.open from Reports)
+            const stored = sessionStorage.getItem('print_label_order');
+            if (stored) {
+                try {
+                    orderData = JSON.parse(stored);
+                } catch (e) {
+                    console.error("Failed to parse stored label order", e);
+                }
+            }
+        }
+
+        if (orderData) {
+            setOrder(orderData);
+            if (orderData.patientId) {
+                const rawId = orderData.patientId.split(' - ')[0];
                 const patients = storage.getPatients();
                 const foundPatient = patients.find(p => p.id === rawId);
                 setPatient(foundPatient);
@@ -21,16 +38,32 @@ const PrintLabel = () => {
 
     useEffect(() => {
         if (order) {
+            // Generate Barcodes
+            order.tests.forEach((test, index) => {
+                try {
+                    const barcodeValue = order.patientId.split(' - ')[0] || order.id;
+                    JsBarcode(`#barcode-${index}`, barcodeValue, {
+                        format: "CODE128",
+                        width: 1.5,
+                        height: 30,
+                        displayValue: false,
+                        margin: 0
+                    });
+                } catch (e) {
+                    console.error("Barcode error", e);
+                }
+            });
+
             setTimeout(() => {
                 window.print();
-            }, 500);
+            }, 800);
         }
     }, [order]);
 
     if (!order) return <div className="p-8 text-center text-slate-500">Loading label data...</div>;
 
-    const patientName = patient ? patient.fullName : order.patientId.split(' - ')[1] || 'Unknown';
-    const patientId = patient ? patient.id : order.patientId.split(' - ')[0];
+    const patientName = patient ? patient.fullName : (order.patientId ? order.patientId.split(' - ')[1] : 'Unknown');
+    const patientId = patient ? patient.id : (order.patientId ? order.patientId.split(' - ')[0] : 'Unknown');
     const genderAge = patient ? `${patient.age}/${patient.gender.charAt(0).toUpperCase()}` : '';
 
     return (
@@ -38,27 +71,21 @@ const PrintLabel = () => {
             <div className="grid grid-cols-2 gap-4 print:block print:gap-0">
                 {order.tests.map((test, index) => (
                     <div key={index} className="border border-slate-300 rounded-lg p-2 w-[50mm] h-[25mm] flex flex-col justify-between mb-4 print:mb-[2mm] print:break-inside-avoid page-break-inside-avoid overflow-hidden relative bg-white">
-                        {/* Barcode stripe simulation */}
-                        <div className="absolute top-0 right-0 bottom-0 w-2 bg-slate-800"></div>
 
                         <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="text-[10px] font-bold text-slate-900 leading-tight truncate w-32">{patientName}</h3>
-                                <p className="text-[9px] text-slate-600 font-medium">{patientId} <span className="mx-1">|</span> {genderAge}</p>
+                            <div className="max-w-[70%]">
+                                <h3 className="text-[10px] font-bold text-slate-900 leading-tight truncate">{patientName}</h3>
+                                <p className="text-[9px] text-slate-600 font-medium">{patientId} <span className="mx-0.5">|</span> {genderAge}</p>
                             </div>
-                            <span className="text-[8px] font-bold bg-slate-100 px-1 rounded">{test.code}</span>
+                            <span className="text-[8px] font-bold bg-slate-100 px-1 rounded truncate max-w-[30%]">{test.code}</span>
                         </div>
 
-                        <div className="flex justify-between items-end mt-1">
-                            {/* Barcode visual simulation */}
-                            <div className="flex items-end space-x-[1px] h-6 opacity-80">
-                                {[...Array(25)].map((_, i) => (
-                                    <div key={i} className={`w-[1px] bg-black ${Math.random() > 0.5 ? 'h-full' : 'h-3/4'}`}></div>
-                                ))}
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[8px] text-slate-400">{new Date().toLocaleDateString()}</p>
-                            </div>
+                        <div className="flex justify-center items-center mt-1">
+                            <canvas id={`barcode-${index}`}></canvas>
+                        </div>
+
+                        <div className="text-right mt-auto">
+                            <p className="text-[7px] text-slate-400">{new Date().toLocaleDateString()}</p>
                         </div>
                     </div>
                 ))}

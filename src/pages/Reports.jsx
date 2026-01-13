@@ -230,6 +230,7 @@ const PrintButton = ({ order }) => {
             date: order.completedAt || new Date().toISOString(),
             billingDate: order.createdAt,
             sampleDate: order.collectedAt || order.createdAt,
+            patientPhone: order.patientPhone || '',
             tests: order.results || []
         };
 

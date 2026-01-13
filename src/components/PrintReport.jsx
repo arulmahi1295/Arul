@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Letterhead from './Letterhead';
 import { storage } from '../data/storage';
 import { TEST_CATALOG } from '../data/testCatalog';
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, MessageCircle } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
 const PrintReport = () => {
@@ -84,8 +84,24 @@ const PrintReport = () => {
                     <h1 className="font-bold text-slate-700">Preview Report</h1>
                     <div className="flex gap-3">
                         <button
+                            onClick={() => {
+                                let phone = reportData.patientPhone;
+                                if (!phone) {
+                                    phone = prompt("Enter Patient Phone Number (10 digits):");
+                                }
+
+                                if (phone) {
+                                    const text = `Dear ${reportData.patientName}, Please find your test report attached. Report ID: ${reportData.id}. GreenHealth Lab.`;
+                                    window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(text)}`, '_blank');
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium shadow-sm mr-2"
+                        >
+                            <MessageCircle className="h-4 w-4" /> WhatsApp
+                        </button>
+                        <button
                             onClick={handleDownloadPDF}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm"
                         >
                             <Download className="h-4 w-4" /> Download PDF
                         </button>
