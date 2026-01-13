@@ -14,21 +14,25 @@ const Reports = () => {
 
     useEffect(() => {
         loadOrders();
-    }, []);
+    }, [activeTab]);
 
     const loadOrders = async () => {
-        const allOrders = await storage.getOrders();
-        // Sort by date desc
-        allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        let fetchedOrders = [];
+
+        if (activeTab === 'pending') {
+            fetchedOrders = await storage.getOrdersByStatus('pending');
+        } else {
+            fetchedOrders = await storage.getOrdersByStatus('completed');
+        }
 
         // Enrich with Phone
         const patients = await storage.getPatients() || [];
         const ptMap = patients.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
-        allOrders.forEach(o => {
+        fetchedOrders.forEach(o => {
             o.patientPhone = ptMap[o.patientId]?.phone || '';
         });
 
-        setOrders(allOrders);
+        setOrders(fetchedOrders);
     };
 
     const handleSaveResult = async (orderId, results, isFinalized) => {
@@ -47,17 +51,14 @@ const Reports = () => {
     };
 
     // Filter logic
+    // Filter logic (Search Only)
     const filteredOrders = orders.filter(order => {
-        const matchesTab = activeTab === 'pending'
-            ? order.status !== 'completed'
-            : order.status === 'completed';
-
         const searchLower = debouncedSearchTerm.toLowerCase();
         const matchesSearch =
             order.id.toLowerCase().includes(searchLower) ||
             order.patientId.toLowerCase().includes(searchLower);
 
-        return matchesTab && matchesSearch;
+        return matchesSearch;
     });
 
     return (
@@ -76,13 +77,13 @@ const Reports = () => {
                         className={`flex-1 py-4 text-sm font-medium text-center transition-colors ${activeTab === 'pending' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/10' : 'text-slate-500 hover:text-slate-700'}`}
                         onClick={() => setActiveTab('pending')}
                     >
-                        Pending Results ({orders.filter(o => o.status !== 'completed').length})
+                        Pending Results
                     </button>
                     <button
                         className={`flex-1 py-4 text-sm font-medium text-center transition-colors ${activeTab === 'ready' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/10' : 'text-slate-500 hover:text-slate-700'}`}
                         onClick={() => setActiveTab('ready')}
                     >
-                        Ready Reports ({orders.filter(o => o.status === 'completed').length})
+                        Ready Reports
                     </button>
                 </div>
 
