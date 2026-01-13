@@ -7,7 +7,10 @@ import { Calendar, Search, Edit2, Download, FileText, DollarSign, CreditCard, Me
 const BillingHistory = () => {
     console.log("BillingHistory: Component rendering...");
     const navigate = useNavigate();
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dateRange, setDateRange] = useState({
+        from: new Date().toISOString().split('T')[0],
+        to: new Date().toISOString().split('T')[0]
+    });
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -19,8 +22,8 @@ const BillingHistory = () => {
     });
 
     useEffect(() => {
-        loadDailyData();
-    }, [selectedDate]);
+        loadData();
+    }, [dateRange]);
 
     useEffect(() => {
         if (!orders) return;
@@ -41,29 +44,34 @@ const BillingHistory = () => {
         }
     }, [searchTerm, orders]);
 
-    const loadDailyData = async () => {
-        console.log("BillingHistory: Loading data for", selectedDate);
+    const loadData = async () => {
+        console.log("BillingHistory: Loading data for range", dateRange);
         try {
             const allOrders = await storage.getOrders() || [];
-            // Filter by selected date (YYYY-MM-DD)
-            const dailyOrders = allOrders.filter(o => o.createdAt && o.createdAt.startsWith(selectedDate));
+
+            // Filter by Date Range (Inclusive)
+            const rangeOrders = allOrders.filter(o => {
+                if (!o.createdAt) return false;
+                const orderDate = o.createdAt.split('T')[0];
+                return orderDate >= dateRange.from && orderDate <= dateRange.to;
+            });
 
             // Sort by newest first
-            dailyOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            rangeOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
             // Map Phone Numbers
             const pts = await storage.getPatients() || [];
             const ptMap = pts.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
 
-            dailyOrders.forEach(o => {
+            rangeOrders.forEach(o => {
                 o.patientPhone = ptMap[o.patientId]?.phone || '';
             });
 
-            setOrders(dailyOrders);
-            setFilteredOrders(dailyOrders);
+            setOrders(rangeOrders);
+            setFilteredOrders(rangeOrders);
 
             // Calculate Summary
-            const stats = dailyOrders.reduce((acc, curr) => ({
+            const stats = rangeOrders.reduce((acc, curr) => ({
                 totalAmount: acc.totalAmount + (curr.totalAmount || 0),
                 collected: acc.collected + (curr.advancePaid || 0),
                 // Pending is Balance Due
@@ -73,7 +81,7 @@ const BillingHistory = () => {
 
             setSummary(stats);
         } catch (error) {
-            console.error("Load daily data error:", error);
+            console.error("Load data error:", error);
             setOrders([]);
             setFilteredOrders([]);
         }
@@ -104,14 +112,26 @@ const BillingHistory = () => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-700 font-medium"
-                        />
+                    <div className="flex items-center gap-2">
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">FROM</span>
+                            <input
+                                type="date"
+                                value={dateRange.from}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+                                className="pl-12 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-700 font-medium text-sm w-40"
+                            />
+                        </div>
+                        <span className="text-slate-300">-</span>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">TO</span>
+                            <input
+                                type="date"
+                                value={dateRange.to}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                                className="pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-700 font-medium text-sm w-40"
+                            />
+                        </div>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -189,7 +209,7 @@ const BillingHistory = () => {
                             {!filteredOrders || filteredOrders.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="text-center py-12 text-slate-400">
-                                        No billing records found for {selectedDate}.
+                                        No billing records found for selected range.
                                     </td>
                                 </tr>
                             ) : (
