@@ -39,6 +39,8 @@ const Dashboard = () => {
     const [popularTests, setPopularTests] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
 
+    const [insights, setInsights] = useState(null);
+
     useEffect(() => {
         loadDashboardData();
     }, [chartPeriod]);
@@ -55,6 +57,7 @@ const Dashboard = () => {
         const todayOrders = allOrders.filter(o => o.createdAt.startsWith(todayStr));
         const pending = allOrders.filter(o => o.status === 'pending').length;
         const totalRev = allOrders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+        const todayRev = todayOrders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
 
         setStats({
             totalPatients: allPatients.length,
@@ -62,6 +65,48 @@ const Dashboard = () => {
             pendingReports: pending,
             revenue: totalRev,
             todayPatients: todayOrders.length
+        });
+
+        // --- Business Insights (Excitement Logic) ---
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yStr = yesterday.toISOString().split('T')[0];
+        const yesterdayOrders = allOrders.filter(o => o.createdAt.startsWith(yStr));
+        const yesterdayRev = yesterdayOrders.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+
+        // Growth
+        let growthMsg = "Steady flow today!";
+        let growthTrend = 'neutral';
+        if (todayRev > yesterdayRev) {
+            const diff = yesterdayRev > 0 ? Math.round(((todayRev - yesterdayRev) / yesterdayRev) * 100) : 100;
+            growthMsg = `🚀 Amazing! Revenue is up ${diff}% from yesterday!`;
+            growthTrend = 'up';
+        } else if (todayPatients > 0) {
+            growthMsg = "🌟 Keep it up! Every patient counts.";
+            growthTrend = 'neutral';
+        }
+
+        // Top Referrer (This Month)
+        const currentMonth = new Date().getMonth();
+        const refCounts = {};
+        allOrders.filter(o => new Date(o.createdAt).getMonth() === currentMonth).forEach(o => {
+            const name = o.referral?.name || (typeof o.referral === 'string' ? o.referral : null);
+            if (name && name !== 'Self') refCounts[name] = (refCounts[name] || 0) + 1;
+        });
+        const bestRef = Object.entries(refCounts).sort((a, b) => b[1] - a[1])[0];
+
+        // Top Test
+        const insightTestStats = {};
+        allOrders.forEach(o => {
+            if (o.tests) o.tests.forEach(t => insightTestStats[t.name] = (insightTestStats[t.name] || 0) + 1);
+        });
+        const bestTest = Object.entries(insightTestStats).sort((a, b) => b[1] - a[1])[0];
+
+        setInsights({
+            growthMsg,
+            growthTrend,
+            topReferrer: bestRef ? { name: bestRef[0], count: bestRef[1] } : null,
+            topTest: bestTest ? { name: bestTest[0], count: bestTest[1] } : null
         });
 
         // --- Chart Data (Revenue) ---
@@ -203,6 +248,58 @@ const Dashboard = () => {
                     </p>
                 </div>
             </header>
+
+            {/* Business Insights Banner */}
+            {insights && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-700">
+                    {/* Growth Card */}
+                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:scale-110 transition-transform"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-3 text-indigo-100 font-medium text-sm uppercase tracking-wider">
+                                <TrendingUp className="h-4 w-4" /> Daily Pulse
+                            </div>
+                            <p className="text-lg font-bold leading-tight">{insights.growthMsg}</p>
+                        </div>
+                    </div>
+
+                    {/* Top Referrer */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-full blur-xl -mr-5 -mt-5"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-3 text-emerald-600 font-bold text-xs uppercase tracking-wider">
+                                <Star className="h-4 w-4" /> Star Partner
+                            </div>
+                            {insights.topReferrer ? (
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-800">{insights.topReferrer.name}</h3>
+                                    <p className="text-slate-500 text-sm mt-1">Driving growth with <span className="font-bold text-emerald-600">{insights.topReferrer.count} referrals</span> this month!</p>
+                                </div>
+                            ) : (
+                                <p className="text-slate-400 text-sm">No referrals yet this month.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Top Test */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-50 to-orange-50 rounded-full blur-xl -mr-5 -mt-5"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-3 text-amber-600 font-bold text-xs uppercase tracking-wider">
+                                <Activity className="h-4 w-4" /> Best Seller
+                            </div>
+                            {insights.topTest ? (
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-800">{insights.topTest.name.length > 25 ? insights.topTest.name.substring(0, 25) + '...' : insights.topTest.name}</h3>
+                                    <p className="text-slate-500 text-sm mt-1">Most popular choice, performed <span className="font-bold text-amber-600">{insights.topTest.count} times</span>.</p>
+                                </div>
+                            ) : (
+                                <p className="text-slate-400 text-sm">No tests performed yet.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

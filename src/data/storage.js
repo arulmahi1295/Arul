@@ -104,6 +104,22 @@ export const storage = {
         }
     },
 
+    getOrdersByDateRange: async (from, to) => {
+        try {
+            // Assume from/to are YYYY-MM-DD strings
+            const q = query(
+                collection(db, COLLECTIONS.ORDERS),
+                where('createdAt', '>=', from),
+                where('createdAt', '<=', to + 'T23:59:59')
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ ...doc.data(), firebaseId: doc.id }));
+        } catch (e) {
+            console.error('Error fetching orders by date:', e);
+            return [];
+        }
+    },
+
     saveOrder: async (orderData) => {
         try {
             const year = new Date().getFullYear();

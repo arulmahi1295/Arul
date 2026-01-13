@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Send, Eye, Search, AlertTriangle, PenTool, Lock, MessageCircle } from 'lucide-react';
+import { FileText, Download, Send, Eye, Search, AlertTriangle, PenTool, Lock, MessageCircle, Calendar } from 'lucide-react';
 import { storage } from '../data/storage';
 import { useDebounce } from '../hooks/useDebounce';
 import ResultEntryModal from '../components/ResultEntryModal';
@@ -12,17 +12,25 @@ const Reports = () => {
 
     const [selectedOrder, setSelectedOrder] = useState(null); // For modal
 
+    const [dateRange, setDateRange] = useState({
+        from: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
+        to: new Date().toISOString().split('T')[0]
+    });
+
     useEffect(() => {
         loadOrders();
-    }, [activeTab]);
+    }, [activeTab, dateRange]);
 
     const loadOrders = async () => {
         let fetchedOrders = [];
 
         if (activeTab === 'pending') {
+            // Pending: Fetch ALL pending orders (Ignore Date Filter to prevent hiding pending work)
             fetchedOrders = await storage.getOrdersByStatus('pending');
         } else {
-            fetchedOrders = await storage.getOrdersByStatus('completed');
+            // Ready: Fetch by Date Range for History
+            fetchedOrders = await storage.getOrdersByDateRange(dateRange.from, dateRange.to);
+            fetchedOrders = fetchedOrders.filter(o => o.status === 'completed');
         }
 
         // Enrich with Phone
@@ -89,6 +97,28 @@ const Reports = () => {
 
                 {/* Toolbar */}
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    {/* Date Filter */}
+                    <div className={`flex items-center gap-2 mr-4 ${activeTab === 'pending' ? 'opacity-40 grayscale pointer-events-none transition-all' : 'transition-all'}`}>
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                            <input
+                                type="date"
+                                className="pl-9 pr-4 py-2 rounded-lg bg-white border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-100 outline-none hover:border-indigo-300 transition-colors"
+                                value={dateRange.from}
+                                onChange={e => setDateRange({ ...dateRange, from: e.target.value })}
+                            />
+                        </div>
+                        <span className="text-slate-400 font-medium">-</span>
+                        <div className="relative">
+                            <input
+                                type="date"
+                                className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-100 outline-none hover:border-indigo-300 transition-colors"
+                                value={dateRange.to}
+                                onChange={e => setDateRange({ ...dateRange, to: e.target.value })}
+                            />
+                        </div>
+                    </div>
+
                     <div className="relative w-full max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
