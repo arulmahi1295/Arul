@@ -51,6 +51,7 @@ const Login = ({ onLogin }) => {
             await new Promise(r => setTimeout(r, 800));
 
             const users = await storage.getUsers();
+            console.log('DEBUG: storage.getUsers() returned:', users);
             let foundUser = null;
 
             // Strict Search

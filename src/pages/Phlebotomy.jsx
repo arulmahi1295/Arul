@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Plus, Trash2, Beaker, FileText, Printer, CheckCircle, Clock, History, Download } from 'lucide-react';
+import { Search, Plus, Trash2, Beaker, FileText, Printer, CheckCircle, Clock, History, Download, Edit2 } from 'lucide-react';
 import { storage } from '../data/storage';
 import { useDebounce } from '../hooks/useDebounce';
 import { TEST_CATALOG } from '../data/testCatalog';
+import EditPatientModal from '../components/EditPatientModal';
 
 const MOCK_TESTS = TEST_CATALOG;
 
@@ -37,6 +38,10 @@ const Phlebotomy = () => {
     const [editingOrder, setEditingOrder] = useState(null);
     const [lastOrder, setLastOrder] = useState(null);
     const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
+
+    // Feature: Edit Patient
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [fullPatientDetails, setFullPatientDetails] = useState(null);
 
     const OUTSOURCE_PARTNERS = [
         'Lal PathLabs', 'Metropolis', 'Thyrocare', 'Redcliffe', 'Max Lab', 'Local Hospital Reference'
@@ -81,6 +86,11 @@ const Phlebotomy = () => {
                     setPaymentStatus(orderToEdit.paymentStatus || 'Paid');
                     setProcessingMode(orderToEdit.processingMode || 'In-House');
                     setOutsourceLab(orderToEdit.outsourceLab || '');
+
+                    // Fetch full patient details for editing
+                    const patients = await storage.getPatients();
+                    const patient = patients.find(p => p.id === orderToEdit.patientId);
+                    if (patient) setFullPatientDetails(patient);
                 }
             }
             else if (location.state?.prefillPatient) {
@@ -90,6 +100,11 @@ const Phlebotomy = () => {
                 });
                 setPatientSearch(location.state.prefillPatient);
                 if (location.state.paymentMode) setPaymentMode(location.state.paymentMode);
+
+                // Fetch full  details
+                const patients = await storage.getPatients();
+                const patient = patients.find(p => p.id === location.state.patientId);
+                if (patient) setFullPatientDetails(patient);
             }
         };
         loadInitialData();
@@ -119,8 +134,16 @@ const Phlebotomy = () => {
                     .filter(o => o.patientId === selectedPatient.id)
                     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 setPatientHistory(history);
+
+                // Ensure we have full patient details if not already loaded
+                if (!fullPatientDetails) {
+                    const patients = await storage.getPatients();
+                    const patient = patients.find(p => p.id === selectedPatient.id);
+                    if (patient) setFullPatientDetails(patient);
+                }
             } else {
                 setPatientHistory([]);
+                setFullPatientDetails(null);
             }
         };
         loadHistory();
@@ -128,6 +151,7 @@ const Phlebotomy = () => {
 
     const selectPatient = (patient) => {
         setSelectedPatient({ name: patient.fullName, id: patient.id });
+        setFullPatientDetails(patient);
         setPatientSearch(patient.fullName);
         setPatientSearchResults([]);
         setShowPatientResults(false);
@@ -135,7 +159,23 @@ const Phlebotomy = () => {
 
     const clearPatient = () => {
         setSelectedPatient(null);
+        setFullPatientDetails(null);
         setPatientSearch('');
+    };
+
+    const handlePatientUpdate = async (updatedPatient) => {
+        setFullPatientDetails(updatedPatient);
+        setSelectedPatient({ name: updatedPatient.fullName, id: updatedPatient.id });
+        setPatientSearch(updatedPatient.fullName);
+
+        // If we are editing an order, we should probably update the order's patientName too
+        if (editingOrder) {
+            // We don't save to DB here, only when "Update Order" is clicked, 
+            // BUT user expectation is that the edit is saved.
+            // storage.updatePatient already saved it to Patient DB.
+            // We just update local state so when they click "Update Order", it uses new name.
+            console.log("Patient updated, ready to save order with new details.");
+        }
     };
 
     const filteredTests = MOCK_TESTS.filter(test =>
@@ -190,7 +230,7 @@ const Phlebotomy = () => {
         const orderData = {
             id: editingOrder ? editingOrder.id : `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
             patientId: selectedPatient.id,
-            patientName: selectedPatient.name,
+            patientName: selectedPatient.name, // Uses updated name
             tests: selectedTests,
             subtotal: calculateSubtotal(),
             discount: discount,
@@ -223,6 +263,7 @@ const Phlebotomy = () => {
     const handleReset = () => {
         setSelectedTests([]);
         setSelectedPatient(null);
+        setFullPatientDetails(null);
         setPatientSearch('');
         setOrderStatus('new');
         setSearchTerm('');
@@ -342,11 +383,20 @@ const Phlebotomy = () => {
                                     <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Patient</p>
                                     <p className="font-bold text-indigo-900">{selectedPatient.name}</p>
                                 </div>
-                                {!editingOrder && ( // Disable clearing patient in Edit Mode to avoid accidental swap
-                                    <button onClick={clearPatient} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600 transition-colors">
-                                        <Trash2 className="h-4 w-4" />
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setShowEditModal(true)}
+                                        className="p-1 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600 transition-colors"
+                                        title="Edit Patient Details"
+                                    >
+                                        <Edit2 className="h-4 w-4" />
                                     </button>
-                                )}
+                                    {!editingOrder && ( // Disable clearing patient in Edit Mode to avoid accidental swap
+                                        <button onClick={clearPatient} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600 transition-colors">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div className="relative">
@@ -608,6 +658,15 @@ const Phlebotomy = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Edit Patient Modal */}
+            {showEditModal && fullPatientDetails && (
+                <EditPatientModal
+                    patient={fullPatientDetails}
+                    onClose={() => setShowEditModal(false)}
+                    onSave={handlePatientUpdate}
+                />
+            )}
         </div>
     );
 };

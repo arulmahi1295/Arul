@@ -49,6 +49,22 @@ export const storage = {
         }
     },
 
+    updatePatient: async (patientId, updates) => {
+        try {
+            // Find by custom ID similar to updateOrder
+            const q = query(collection(db, COLLECTIONS.PATIENTS), where('id', '==', patientId));
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) return null;
+
+            const docRef = snapshot.docs[0].ref;
+            await updateDoc(docRef, updates);
+            return { ...snapshot.docs[0].data(), ...updates };
+        } catch (e) {
+            console.error('Error updating patient:', e);
+            throw e;
+        }
+    },
+
     getNextPatientId: async () => {
         // Simple client-side generation for now to avoid complex counters
         // Ideal: Use a counter document in a transaction
