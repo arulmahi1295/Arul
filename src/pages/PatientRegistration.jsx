@@ -19,7 +19,7 @@ const PatientRegistration = () => {
         allergies: '',
         paymentMode: 'Cash',
         source: 'Walk-in',
-        referralId: ''
+        referralId: 'Self'
     });
     const [referrals, setReferrals] = useState([]);
     const [recentPatients, setRecentPatients] = useState([]);
@@ -187,7 +187,7 @@ const PatientRegistration = () => {
                                             <option value="Corporate">Corporate</option>
                                         </SelectField>
                                         <SelectField label="Referral" name="referralId" value={formData.referralId} onChange={handleChange}>
-                                            <option value="">None</option>
+                                            <option value="Self">Self (Default)</option>
                                             {referrals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                         </SelectField>
                                     </div>
@@ -254,7 +254,7 @@ const PatientRegistration = () => {
                         <div className="bg-slate-50 p-6 border-t border-slate-100 flex items-center justify-end gap-3">
                             <button
                                 type="button"
-                                onClick={() => setFormData({ fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '', bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash', source: 'Walk-in', referralId: '' })}
+                                onClick={() => setFormData({ fullName: '', age: '', dob: '', gender: 'male', phone: '', email: '', address: '', bloodGroup: '', medicalConditions: '', medications: '', allergies: '', paymentMode: 'Cash', source: 'Walk-in', referralId: 'Self' })}
                                 className="px-6 py-3 rounded-xl text-slate-600 font-bold hover:bg-slate-200 transition-colors text-sm"
                             >
                                 Reset Form
