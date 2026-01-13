@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Leaf } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { storage } from '../data/storage';
 import Letterhead from './Letterhead';
@@ -8,6 +9,9 @@ const PrintInvoice = () => {
     const location = useLocation();
     const [order, setOrder] = useState(null);
     const [patient, setPatient] = useState(null);
+    const [headerImage, setHeaderImage] = useState(null);
+    const [footerImage, setFooterImage] = useState(null);
+    const [watermarkImage, setWatermarkImage] = useState(null);
 
     useEffect(() => {
         const loadInvoiceData = async () => {
@@ -32,6 +36,14 @@ const PrintInvoice = () => {
                     const foundPatient = patients.find(p => p.id === rawId);
                     setPatient(foundPatient);
                 }
+            }
+
+            // Load Settings
+            const settings = await storage.getSettings();
+            if (settings) {
+                setHeaderImage(settings.headerImage || null);
+                setFooterImage(settings.footerImage || null);
+                setWatermarkImage(settings.watermarkImage || null);
             }
         };
         loadInvoiceData();
@@ -72,12 +84,29 @@ const PrintInvoice = () => {
                     }
                 `}
             </style>
-            <div className="bg-white min-h-screen p-4 max-w-[148mm] mx-auto print:p-0 print:max-w-none print:w-[148mm] print:overflow-hidden">
-                <Letterhead
-                    title="INVOICE"
-                    subtitle={`#${order.id}`}
-                    meta={<>Date: {new Date(order.createdAt).toLocaleDateString()}</>}
-                />
+            <div className="bg-white min-h-screen p-4 max-w-[148mm] mx-auto print:p-0 print:max-w-none print:w-[148mm] print:overflow-hidden relative overflow-hidden flex flex-col">
+
+                {/* Watermark in Background */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                    {watermarkImage ? (
+                        <img src={watermarkImage} alt="Watermark" className="w-[70%] opacity-[0.08] object-contain rotate-[-15deg]" />
+                    ) : (
+                        <Leaf className="w-80 h-80 text-emerald-600 opacity-[0.08] rotate-[-15deg]" />
+                    )}
+                </div>
+
+                {/* Header Section */}
+                <div className="z-10 relative shrink-0">
+                    {headerImage ? (
+                        <img src={headerImage} alt="Header" className="w-full mb-4 object-contain max-h-32" />
+                    ) : (
+                        <Letterhead
+                            title="INVOICE"
+                            subtitle={`#${order.id}`}
+                            meta={<>Date: {new Date(order.createdAt).toLocaleDateString()}</>}
+                        />
+                    )}
+                </div>
 
                 {/* Patient Info */}
                 <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100 print:bg-transparent print:border-slate-200 text-xs">
@@ -160,8 +189,11 @@ const PrintInvoice = () => {
                 </div>
 
                 {/* Footer */}
-                <footer className="mt-8 pt-4 border-t border-slate-200 text-center text-[10px] text-slate-400">
+                <footer className="mt-8 pt-4 border-t border-slate-200 text-center text-[10px] text-slate-400 z-10 relative shrink-0">
                     <p className="mb-1">Thank you for choosing GreenHealth Lab.</p>
+                    {footerImage && (
+                        <img src={footerImage} alt="Footer" className="w-full mt-2 object-contain max-h-24" />
+                    )}
                 </footer>
             </div>
         </>

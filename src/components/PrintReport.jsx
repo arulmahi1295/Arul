@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Letterhead from './Letterhead';
 import { storage } from '../data/storage';
 import { TEST_CATALOG } from '../data/testCatalog';
-import { Download, Printer, MessageCircle } from 'lucide-react';
+import { Download, Printer, MessageCircle, Leaf } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
 const PrintReport = () => {
@@ -11,14 +11,20 @@ const PrintReport = () => {
     const [reportData, setReportData] = useState(null);
     const [signature, setSignature] = useState(null);
     const [labTechSignature, setLabTechSignature] = useState(null);
+    const [headerImage, setHeaderImage] = useState(null);
+    const [footerImage, setFooterImage] = useState(null);
+    const [watermarkImage, setWatermarkImage] = useState(null);
     const reportRef = useRef(null);
 
     useEffect(() => {
         const loadSettings = async () => {
             const settings = await storage.getSettings();
             if (settings) {
-                if (settings.signature) setSignature(settings.signature);
-                if (settings.labTechSignature) setLabTechSignature(settings.labTechSignature);
+                setSignature(settings.signature || null);
+                setLabTechSignature(settings.labTechSignature || null);
+                setHeaderImage(settings.headerImage || null);
+                setFooterImage(settings.footerImage || null);
+                setWatermarkImage(settings.watermarkImage || null);
             }
         };
         loadSettings();
@@ -116,12 +122,29 @@ const PrintReport = () => {
             </div>
 
             {/* Printable Content */}
-            <div ref={reportRef} className="bg-white p-8 max-w-[210mm] mx-auto print:p-0 print:max-w-none font-sans text-slate-800 shadow-xl print:shadow-none min-h-[297mm]">
-                <Letterhead
-                    title="DIAGNOSTIC REPORT"
-                    subtitle={`Report ID: ${reportData.id}`}
-                    meta={<>Reported: {new Date(reportData.date).toLocaleString()}</>}
-                />
+            <div ref={reportRef} className="bg-white p-8 max-w-[210mm] mx-auto print:p-0 print:max-w-none font-sans text-slate-800 shadow-xl print:shadow-none min-h-[297mm] relative overflow-hidden flex flex-col">
+
+                {/* Watermark in Background */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                    {watermarkImage ? (
+                        <img src={watermarkImage} alt="Watermark" className="w-[60%] opacity-[0.08] object-contain rotate-[-15deg]" />
+                    ) : (
+                        <Leaf className="w-96 h-96 text-emerald-600 opacity-[0.08] rotate-[-15deg]" />
+                    )}
+                </div>
+
+                {/* Header Section */}
+                <div className="z-10 relative shrink-0">
+                    {headerImage ? (
+                        <img src={headerImage} alt="Header" className="w-full mb-4 object-contain max-h-48" />
+                    ) : (
+                        <Letterhead
+                            title="DIAGNOSTIC REPORT"
+                            subtitle={`Report ID: ${reportData.id}`}
+                            meta={<>Reported: {new Date(reportData.date).toLocaleString()}</>}
+                        />
+                    )}
+                </div>
 
                 {/* Patient Details */}
                 <div className="border border-slate-200 rounded-lg p-4 mb-8 bg-slate-50 print:bg-transparent print:border-slate-300">
@@ -258,37 +281,44 @@ const PrintReport = () => {
                 </div>
 
                 {/* Footer / Disclaimer */}
-                <footer className="mt-auto border-t-2 border-slate-100 pt-4 print:fixed print:bottom-0 print:left-8 print:right-8 print:bg-white">
-                    <div className="flex justify-end items-end mb-4">
-                        <div className="text-center relative">
-                            {labTechSignature && (
-                                <img
-                                    src={labTechSignature}
-                                    alt="Lab Tech Signature"
-                                    className="absolute bottom-8 left-1/2 -translate-x-1/2 h-12 object-contain mix-blend-multiply opacity-90"
-                                />
-                            )}
-                            <div className="h-12 w-32 mb-2 border-b border-dashed border-slate-300"></div>
-                            <p className="font-bold text-xs text-slate-800">Lab Technician</p>
+                <footer className="mt-auto z-10 relative shrink-0">
+                    <div className="border-t-2 border-slate-100 pt-4 print:break-inside-avoid">
+                        <div className="flex justify-end items-end mb-4">
+                            <div className="text-center relative">
+                                {labTechSignature && (
+                                    <img
+                                        src={labTechSignature}
+                                        alt="Lab Tech Signature"
+                                        className="absolute bottom-8 left-1/2 -translate-x-1/2 h-12 object-contain mix-blend-multiply opacity-90"
+                                    />
+                                )}
+                                <div className="h-12 w-32 mb-2 border-b border-dashed border-slate-300"></div>
+                                <p className="font-bold text-xs text-slate-800">Lab Technician</p>
+                            </div>
+                            <div className="text-center ml-12 relative">
+                                {signature && (
+                                    <img
+                                        src={signature}
+                                        alt="Signature"
+                                        className="absolute bottom-8 left-1/2 -translate-x-1/2 h-12 object-contain mix-blend-multiply opacity-90"
+                                    />
+                                )}
+                                <div className="h-12 w-32 mb-2 border-b border-dashed border-slate-300"></div>
+                                <p className="font-bold text-xs text-slate-800">Pathologist</p>
+                            </div>
                         </div>
-                        <div className="text-center ml-12 relative">
-                            {signature && (
-                                <img
-                                    src={signature}
-                                    alt="Signature"
-                                    className="absolute bottom-8 left-1/2 -translate-x-1/2 h-12 object-contain mix-blend-multiply opacity-90"
-                                />
-                            )}
-                            <div className="h-12 w-32 mb-2 border-b border-dashed border-slate-300"></div>
-                            <p className="font-bold text-xs text-slate-800">Pathologist</p>
-                        </div>
-                    </div>
 
-                    <p className="text-[10px] text-slate-400 text-center leading-tight">
-                        ** Interpretation: Results should be clinically correlated with the patient's history and other diagnostic findings.
-                        Please consult your doctor for proper diagnosis and treatment.
-                        This report is electronicallygenerated and verified.
-                    </p>
+                        <p className="text-[10px] text-slate-400 text-center leading-tight mb-2">
+                            ** Interpretation: Results should be clinically correlated with the patient's history and other diagnostic findings.
+                            Please consult your doctor for proper diagnosis and treatment.
+                            This report is electronically generated and verified.
+                        </p>
+
+                        {/* Optional Image Footer */}
+                        {footerImage && (
+                            <img src={footerImage} alt="Footer" className="w-full mt-2 object-contain max-h-32" />
+                        )}
+                    </div>
                 </footer>
             </div>
         </div>

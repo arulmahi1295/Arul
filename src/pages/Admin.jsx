@@ -454,91 +454,95 @@ const OutsourceLabManagement = ({ labs, onAdd, onDelete }) => {
     );
 };
 
-const LabConfiguration = ({ pathologistSignature, labTechSignature, onUploadPathologist, onDeletePathologist, onUploadLabTech, onDeleteLabTech }) => (
-    <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl">
+const ImageSetting = ({ title, image, onUpload, onDelete, icon: Icon, colorClass }) => (
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full">
+        <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+            <Icon className={`h-5 w-5 mr-3 ${colorClass}`} />
+            {title}
+        </h3>
+        <div className="flex-1 flex flex-col justify-between space-y-4">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center min-h-[140px] flex flex-col items-center justify-center relative">
+                {image ? (
+                    <div className="relative inline-block w-full">
+                        <img src={image} alt={title} className="max-h-24 max-w-full object-contain mx-auto bg-white rounded-lg p-2 shadow-sm" />
+                        <button onClick={onDelete} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1.5 rounded-full shadow-md hover:bg-rose-600 transition-colors" title="Delete">
+                            <Trash2 className="h-3 w-3" />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="text-slate-400 flex flex-col items-center">
+                        <div className={`p-3 rounded-full bg-white mb-2 ${colorClass.replace('text-', 'bg-').replace('600', '50')}`}>
+                            <Icon className={`h-6 w-6 ${colorClass} opacity-50`} />
+                        </div>
+                        <p className="text-xs font-semibold">Not Set</p>
+                    </div>
+                )}
+            </div>
+            <label className="block w-full cursor-pointer bg-white border border-dashed border-slate-300 rounded-lg p-3 text-center hover:bg-slate-50 hover:border-slate-400 transition-all">
+                <div className="flex items-center justify-center text-sm font-bold text-slate-600">
+                    <Upload className="h-4 w-4 mr-2" /> Upload
+                </div>
+                <input type="file" accept="image/*" onChange={onUpload} className="hidden" />
+            </label>
+        </div>
+    </div>
+);
+
+const LabConfiguration = ({
+    pathologistSignature, labTechSignature, headerImage, footerImage, watermarkImage,
+    onUploadPathologist, onDeletePathologist,
+    onUploadLabTech, onDeleteLabTech,
+    onUploadHeader, onDeleteHeader,
+    onUploadFooter, onDeleteFooter,
+    onUploadWatermark, onDeleteWatermark
+}) => (
+    <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-5xl">
         <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-800">Lab Configuration</h2>
-            <p className="text-slate-500">Report settings and digital signatures</p>
+            <p className="text-slate-500">Manage report layout, headers, footers, and signatures.</p>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-            {/* Pathologist Section */}
-            <h3 className="font-bold text-slate-800 mb-6 flex items-center">
-                <PenTool className="h-5 w-5 mr-3 text-indigo-600" />
-                Pathologist Signature
-            </h3>
-            <div className="space-y-6 mb-12 border-b border-slate-100 pb-12">
-                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                    {pathologistSignature ? (
-                        <div className="relative inline-block group">
-                            <img src={pathologistSignature} alt="Pathologist Signature" className="h-24 object-contain mx-auto bg-white rounded-lg p-2 shadow-sm" />
-                            <button
-                                onClick={onDeletePathologist}
-                                className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full shadow-lg hover:bg-rose-600 transition-colors"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </button>
-                            <p className="text-xs text-emerald-600 font-bold mt-4 flex items-center justify-center">
-                                <Shield className="h-3 w-3 mr-1" />
-                                Signature Active
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="text-slate-400">
-                            <FileSignature className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                            <p className="text-sm font-medium">No signature uploaded</p>
-                            <p className="text-xs mt-1">Upload a transparent PNG for automatic signing</p>
-                        </div>
-                    )}
-                </div>
-                <div>
-                    <label className="block w-full cursor-pointer bg-white border-2 border-dashed border-indigo-200 rounded-xl p-8 text-center hover:bg-indigo-50/50 hover:border-indigo-300 transition-all">
-                        <Upload className="h-8 w-8 text-indigo-400 mx-auto mb-2" />
-                        <span className="block text-sm font-bold text-indigo-600">Click to Upload Pathologist Signature</span>
-                        <span className="block text-xs text-slate-400 mt-1">Supports PNG, JPG (Max 2MB)</span>
-                        <input type="file" accept="image/*" onChange={onUploadPathologist} className="hidden" />
-                    </label>
-                </div>
-            </div>
-
-            {/* Lab Technician Section */}
-            <h3 className="font-bold text-slate-800 mb-6 flex items-center">
-                <Users className="h-5 w-5 mr-3 text-emerald-600" />
-                Lab Technician Signature
-            </h3>
-            <div className="space-y-6">
-                <div className="p-6 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                    {labTechSignature ? (
-                        <div className="relative inline-block group">
-                            <img src={labTechSignature} alt="Lab Tech Signature" className="h-24 object-contain mx-auto bg-white rounded-lg p-2 shadow-sm" />
-                            <button
-                                onClick={onDeleteLabTech}
-                                className="absolute -top-3 -right-3 bg-rose-500 text-white p-1.5 rounded-full shadow-lg hover:bg-rose-600 transition-colors"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </button>
-                            <p className="text-xs text-emerald-600 font-bold mt-4 flex items-center justify-center">
-                                <Shield className="h-3 w-3 mr-1" />
-                                Signature Active
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="text-slate-400">
-                            <FileSignature className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                            <p className="text-sm font-medium">No signature uploaded</p>
-                            <p className="text-xs mt-1">Upload a transparent PNG for automatic signing</p>
-                        </div>
-                    )}
-                </div>
-                <div>
-                    <label className="block w-full cursor-pointer bg-white border-2 border-dashed border-emerald-200 rounded-xl p-8 text-center hover:bg-emerald-50/50 hover:border-emerald-300 transition-all">
-                        <Upload className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                        <span className="block text-sm font-bold text-emerald-600">Click to Upload Lab Tech Signature</span>
-                        <span className="block text-xs text-slate-400 mt-1">Supports PNG, JPG (Max 2MB)</span>
-                        <input type="file" accept="image/*" onChange={onUploadLabTech} className="hidden" />
-                    </label>
-                </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <ImageSetting
+                title="Report Header"
+                image={headerImage}
+                onUpload={onUploadHeader}
+                onDelete={onDeleteHeader}
+                icon={LayoutDashboard}
+                colorClass="text-blue-600"
+            />
+            <ImageSetting
+                title="Report Footer"
+                image={footerImage}
+                onUpload={onUploadFooter}
+                onDelete={onDeleteFooter}
+                icon={LayoutDashboard}
+                colorClass="text-blue-600"
+            />
+            <ImageSetting
+                title="Watermark Logo"
+                image={watermarkImage}
+                onUpload={onUploadWatermark}
+                onDelete={onDeleteWatermark}
+                icon={Shield}
+                colorClass="text-purple-600"
+            />
+            <ImageSetting
+                title="Pathologist Sign"
+                image={pathologistSignature}
+                onUpload={onUploadPathologist}
+                onDelete={onDeletePathologist}
+                icon={PenTool}
+                colorClass="text-indigo-600"
+            />
+            <ImageSetting
+                title="Lab Tech Sign"
+                image={labTechSignature}
+                onUpload={onUploadLabTech}
+                onDelete={onDeleteLabTech}
+                icon={Users}
+                colorClass="text-emerald-600"
+            />
         </div>
     </div>
 );
@@ -633,8 +637,12 @@ const Admin = () => {
         users: [],
         referrals: [],
         outsourceLabs: [],
+        outsourceLabs: [],
         signature: null,
-        labTechSignature: null
+        labTechSignature: null,
+        headerImage: null,
+        footerImage: null,
+        watermarkImage: null
     });
 
     useEffect(() => {
@@ -701,7 +709,10 @@ const Admin = () => {
             referrals,
             outsourceLabs,
             signature: settings?.signature,
-            labTechSignature: settings?.labTechSignature
+            labTechSignature: settings?.labTechSignature,
+            headerImage: settings?.headerImage,
+            footerImage: settings?.footerImage,
+            watermarkImage: settings?.watermarkImage
         });
     };
 
@@ -821,6 +832,28 @@ const Admin = () => {
         loadAllData();
     };
 
+    // Generic Settings Handlers
+    const handleSettingUpload = (e, key) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 500 * 1024) { alert('File too large (Max 500KB)'); return; }
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            await storage.saveSettings({ [key]: reader.result });
+            loadAllData();
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSettingDelete = async (key) => {
+        await storage.saveSettings({ [key]: null });
+        loadAllData();
+    };
+
+    const handleHeaderUpload = (e) => handleSettingUpload(e, 'headerImage');
+    const handleFooterUpload = (e) => handleSettingUpload(e, 'footerImage');
+    const handleWatermarkUpload = (e) => handleSettingUpload(e, 'watermarkImage');
+
     // Export/Import Temporarily Disabled for Async Migration
     const handleExport = async () => {
         try {
@@ -937,57 +970,103 @@ const Admin = () => {
     ];
 
     return (
+        <div className="h-screen w-full bg-slate-100 p-4 font-sans flex items-center justify-center">
+            <div className="flex w-full max-w-[1800px] h-[calc(100vh-2rem)] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
 
-        <div className="max-w-7xl mx-auto pb-12">
-            <header className="mb-8 flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-                        <Shield className="mr-3 h-8 w-8 text-indigo-600" />
-                        Admin & Security Control
-                    </h1>
-                    <p className="text-slate-500">System management, access logs, and data security. <span className="text-xs bg-slate-100 px-2 py-0.5 rounded ml-2">v1.3</span></p>
-                </div>
-                <button
-                    onClick={() => setIsAuthenticated(false)}
-                    className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-medium flex items-center text-sm"
-                >
-                    <Lock className="h-4 w-4 mr-2" /> Lock Console
-                </button>
-            </header>
+                {/* Ultra Pro Sidebar */}
+                <aside className="w-72 bg-slate-50 flex flex-col border-r border-slate-200 relative overflow-hidden">
+                    {/* Decorative background blur/gradient elements could go here */}
 
-            {/* Navigation Tabs (Pills) */}
-            <div className="flex space-x-2 bg-slate-100 p-1 rounded-xl mb-8 overflow-x-auto">
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex-1 flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id
-                            ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-                            }`}
-                    >
-                        <tab.icon className={`h-4 w-4 mr-2 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`} />
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
+                    <div className="p-6 border-b border-slate-200/50 bg-white/50 backdrop-blur-sm">
+                        <div className="flex items-center gap-3 text-slate-800">
+                            <div className="p-2.5 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl text-white shadow-lg shadow-indigo-200">
+                                <Shield className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h1 className="font-bold text-lg leading-none mb-1">Admin</h1>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Console v2.0</p>
+                            </div>
+                        </div>
+                    </div>
 
-            {/* Main Content Area */}
-            <div className="min-h-[500px]">
-                {activeTab === 'dashboard' && <DashboardView stats={data.stats} logs={data.logs} />}
-                {activeTab === 'pricing' && <TestPricingManager />}
-                {activeTab === 'employees' && <EmployeeManagement users={data.users} onSave={handleUserSave} onDelete={handleUserDelete} onEdit={/* Logic handled in component state, but needs connection */ null} />}
-                {activeTab === 'referrals' && <ReferralManagement referrals={data.referrals} onAdd={handleReferralSave} onDelete={handleReferralDelete} />}
-                {activeTab === 'labs' && <OutsourceLabManagement labs={data.outsourceLabs} onAdd={handleOutsourceLabSave} onDelete={handleOutsourceLabDelete} />}
-                {activeTab === 'config' && <LabConfiguration
-                    pathologistSignature={data.signature}
-                    labTechSignature={data.labTechSignature}
-                    onUploadPathologist={handleSignatureUpload}
-                    onDeletePathologist={handleDeleteSignature}
-                    onUploadLabTech={handleLabTechUpload}
-                    onDeleteLabTech={handleDeleteLabTech}
-                />}
-                {activeTab === 'data' && <DataManagement onExport={handleExport} onImport={handleImport} onFactoryReset={handleFactoryReset} />}
+                    <nav className="flex-1 overflow-y-auto p-4 space-y-1.5 custom-scrollbar">
+                        {tabs.map(tab => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-300 group relative ${isActive
+                                        ? 'bg-white text-indigo-600 shadow-md shadow-slate-200/50 ring-1 ring-slate-100'
+                                        : 'text-slate-500 hover:text-slate-900 hover:bg-white/80'
+                                        }`}
+                                >
+                                    <Icon className={`h-5 w-5 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                                    <span className={isActive ? 'translate-x-1 transition-transform' : 'transition-transform'}>{tab.label}</span>
+                                    {isActive && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+                                    )}
+                                </button>
+                            )
+                        })}
+                    </nav>
+
+                    <div className="p-5 border-t border-slate-200 bg-slate-100/30">
+                        <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50 mb-4">
+                            <p className="text-[10px] font-semibold text-indigo-400 uppercase mb-1">Security Level</p>
+                            <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
+                                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                                System Secure
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setIsAuthenticated(false)}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all font-bold text-sm shadow-sm active:scale-95"
+                        >
+                            <Lock className="h-4 w-4" />
+                            Lock Console
+                        </button>
+                    </div>
+                </aside>
+
+                {/* Content Area */}
+                <main className="flex-1 overflow-y-auto bg-slate-50/30 relative">
+                    <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
+
+                    <div className="max-w-6xl mx-auto p-8 lg:p-10 relative z-0">
+                        <header className="mb-8">
+                            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">{tabs.find(t => t.id === activeTab)?.label}</h2>
+                            <p className="text-slate-500 mt-1">Manage and configure system settings.</p>
+                        </header>
+
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {activeTab === 'dashboard' && <DashboardView stats={data.stats} logs={data.logs} />}
+                            {activeTab === 'pricing' && <TestPricingManager />}
+                            {activeTab === 'employees' && <EmployeeManagement users={data.users} onSave={handleUserSave} onDelete={handleUserDelete} onEdit={null} />}
+                            {activeTab === 'referrals' && <ReferralManagement referrals={data.referrals} onAdd={handleReferralSave} onDelete={handleReferralDelete} />}
+                            {activeTab === 'labs' && <OutsourceLabManagement labs={data.outsourceLabs} onAdd={handleOutsourceLabSave} onDelete={handleOutsourceLabDelete} />}
+                            {activeTab === 'config' && <LabConfiguration
+                                pathologistSignature={data.signature}
+                                labTechSignature={data.labTechSignature}
+                                headerImage={data.headerImage}
+                                footerImage={data.footerImage}
+                                watermarkImage={data.watermarkImage}
+                                onUploadPathologist={handleSignatureUpload}
+                                onDeletePathologist={handleDeleteSignature}
+                                onUploadLabTech={handleLabTechUpload}
+                                onDeleteLabTech={handleDeleteLabTech}
+                                onUploadHeader={handleHeaderUpload}
+                                onDeleteHeader={() => handleSettingDelete('headerImage')}
+                                onUploadFooter={handleFooterUpload}
+                                onDeleteFooter={() => handleSettingDelete('footerImage')}
+                                onUploadWatermark={handleWatermarkUpload}
+                                onDeleteWatermark={() => handleSettingDelete('watermarkImage')}
+                            />}
+                            {activeTab === 'data' && <DataManagement onExport={handleExport} onImport={handleImport} onFactoryReset={handleFactoryReset} />}
+                        </div>
+                    </div>
+                </main>
             </div>
         </div>
     );

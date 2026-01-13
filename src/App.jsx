@@ -100,11 +100,7 @@ function App() {
                 <Finance />
               </ProtectedRoute>
             } />
-            <Route path="/admin" element={
-              <ProtectedRoute isAllowed={userRole === 'Admin'} redirectPath="/">
-                <Admin />
-              </ProtectedRoute>
-            } />
+
             <Route path="/inventory" element={
               <ProtectedRoute isAllowed={userRole === 'Admin'} redirectPath="/">
                 <Inventory />
@@ -113,6 +109,11 @@ function App() {
           </Route>
 
           {/* Print Routes */}
+          <Route path="/admin" element={
+            <ProtectedRoute isAllowed={userRole === 'Admin'} redirectPath="/">
+              <Admin />
+            </ProtectedRoute>
+          } />
           <Route path="/print/invoice" element={isAuthenticated ? <PrintInvoice /> : <Navigate to="/login" />} />
           <Route path="/print/labels" element={isAuthenticated ? <PrintLabel /> : <Navigate to="/login" />} />
           <Route path="/print/patient-card" element={isAuthenticated ? <PrintPatientCard /> : <Navigate to="/login" />} />
