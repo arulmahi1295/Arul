@@ -3,6 +3,38 @@ import { User, Phone, Mail, MapPin, Calendar, CheckCircle, Activity, AlertCircle
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../data/storage';
 
+const InputField = ({ label, icon: Icon, error, ...props }) => (
+    <div className="group">
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{label}</label>
+        <div className="relative transition-all duration-300">
+            <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 ${error ? 'text-rose-400' : 'text-slate-400 group-focus-within:text-indigo-500'} transition-colors`} />
+            <input
+                {...props}
+                className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${error ? 'border-rose-100 bg-rose-50 text-rose-900 focus:border-rose-500' : 'border-slate-100 bg-slate-50 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10'} outline-none transition-all placeholder:text-slate-400 font-medium`}
+            />
+        </div>
+        {error && <p className="text-xs text-rose-500 mt-1 ml-1 font-medium flex items-center"><AlertCircle className="h-3 w-3 mr-1" />{error}</p>}
+    </div>
+);
+
+const SelectField = ({ label, icon: Icon, children, ...props }) => (
+    <div className="group">
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{label}</label>
+        <div className="relative">
+            {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />}
+            <select
+                {...props}
+                className={`w-full ${Icon ? 'pl-12' : 'px-4'} pr-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium appearance-none`}
+            >
+                {children}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </div>
+        </div>
+    </div>
+);
+
 const PatientRegistration = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -108,38 +140,7 @@ const PatientRegistration = () => {
         });
     };
 
-    // Reusable Input Component
-    const InputField = ({ label, icon: Icon, error, ...props }) => (
-        <div className="group">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{label}</label>
-            <div className="relative transition-all duration-300">
-                <Icon className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 ${error ? 'text-rose-400' : 'text-slate-400 group-focus-within:text-indigo-500'} transition-colors`} />
-                <input
-                    {...props}
-                    className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${error ? 'border-rose-100 bg-rose-50 text-rose-900 focus:border-rose-500' : 'border-slate-100 bg-slate-50 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10'} outline-none transition-all placeholder:text-slate-400 font-medium`}
-                />
-            </div>
-            {error && <p className="text-xs text-rose-500 mt-1 ml-1 font-medium flex items-center"><AlertCircle className="h-3 w-3 mr-1" />{error}</p>}
-        </div>
-    );
-
-    const SelectField = ({ label, icon: Icon, children, ...props }) => (
-        <div className="group">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{label}</label>
-            <div className="relative">
-                {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />}
-                <select
-                    {...props}
-                    className={`w-full ${Icon ? 'pl-12' : 'px-4'} pr-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium appearance-none`}
-                >
-                    {children}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                </div>
-            </div>
-        </div>
-    );
+    // Components defined outside for performance
 
     return (
         <div className="max-w-7xl mx-auto pb-12">

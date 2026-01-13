@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle } from 'lucide-react';
+import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag } from 'lucide-react';
 import { storage } from '../data/storage';
 import { TEST_CATALOG } from '../data/testCatalog';
+import TestPricingManager from '../components/TestPricingManager';
+import ReferralPriceManager from '../components/ReferralPriceManager'; // New Import
 
 // --- Sub-Components ---
 
@@ -282,19 +284,24 @@ const EmployeeManagement = ({ users, onSave, onDelete, onEdit }) => {
     );
 };
 
-const ReferralManagement = ({ referrals, onSave, onDelete }) => {
+const ReferralManagement = ({ referrals, onAdd, onDelete }) => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [formData, setFormData] = useState({ name: '', type: 'Doctor', phone: '' });
+    const [selectedReferral, setSelectedReferral] = useState(null);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(formData);
+        onAdd(formData);
         setIsFormOpen(false);
         setFormData({ name: '', type: 'Doctor', phone: '' });
     };
 
+    if (selectedReferral) {
+        return <ReferralPriceManager referral={selectedReferral} onClose={() => setSelectedReferral(null)} />;
+    }
+
     return (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800">Referral Management</h2>
@@ -351,6 +358,89 @@ const ReferralManagement = ({ referrals, onSave, onDelete }) => {
                                 <div>
                                     <p className="font-bold text-slate-800">{r.name}</p>
                                     <p className="text-xs text-slate-500">{r.type} {r.phone && `• ${r.phone}`}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => setSelectedReferral(r)}
+                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100"
+                                >
+                                    Prices
+                                </button>
+                                <button onClick={() => onDelete(r.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const OutsourceLabManagement = ({ labs, onAdd, onDelete }) => {
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [formData, setFormData] = useState({ name: '', type: 'Reference' });
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onAdd(formData);
+        setIsFormOpen(false);
+        setFormData({ name: '', type: 'Reference' });
+    };
+
+    return (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-2xl">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Outsource Labs</h2>
+                    <p className="text-slate-500">Manage external reference laboratories</p>
+                </div>
+                <button
+                    onClick={() => setIsFormOpen(!isFormOpen)}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 flex items-center shadow-lg shadow-indigo-200"
+                >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {isFormOpen ? 'Cancel' : 'Add Lab'}
+                </button>
+            </div>
+
+            {isFormOpen && (
+                <div className="bg-white p-6 rounded-2xl shadow-lg border border-indigo-100 mb-8">
+                    <h3 className="font-bold text-indigo-900 mb-4">New Laboratory</h3>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lab Name</label>
+                            <input required type="text" className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. HealthCity" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Type</label>
+                            <select className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
+                                <option>Reference</option>
+                                <option>Hospital</option>
+                                <option>Specialized</option>
+                            </select>
+                        </div>
+                        <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">Add Laboratory</button>
+                    </form>
+                </div>
+            )}
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                    <h3 className="font-bold text-slate-700">Lab Partners List</h3>
+                </div>
+                <div className="divide-y divide-slate-100">
+                    {labs.length === 0 ? <p className="text-slate-400 text-center py-8">No labs added.</p> : labs.map(r => (
+                        <div key={r.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                            <div className="flex items-center">
+                                <div className="h-10 w-10 rounded-lg flex items-center justify-center text-sm font-bold mr-4 bg-purple-100 text-purple-700">
+                                    {r.name.substring(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-slate-800">{r.name}</p>
+                                    <p className="text-xs text-slate-500">{r.type}</p>
                                 </div>
                             </div>
                             <button onClick={() => onDelete(r.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
@@ -542,6 +632,7 @@ const Admin = () => {
         logs: [],
         users: [],
         referrals: [],
+        outsourceLabs: [],
         signature: null,
         labTechSignature: null
     });
@@ -557,6 +648,7 @@ const Admin = () => {
         const orders = await storage.getOrders();
         const users = await storage.getUsers();
         const referrals = await storage.getReferrals();
+        const outsourceLabs = await storage.getOutsourceLabs();
         const settings = await storage.getSettings();
 
         // Stats Logic
@@ -607,6 +699,7 @@ const Admin = () => {
             logs: allLogs,
             users,
             referrals,
+            outsourceLabs,
             signature: settings?.signature,
             labTechSignature: settings?.labTechSignature
         });
@@ -649,6 +742,18 @@ const Admin = () => {
     const handleReferralDelete = async (id) => {
         if (confirm('Delete this referral?')) {
             await storage.deleteReferral(id);
+            loadAllData();
+        }
+    };
+
+    const handleOutsourceLabSave = async (labData) => {
+        await storage.saveOutsourceLab(labData);
+        loadAllData();
+    };
+
+    const handleOutsourceLabDelete = async (id) => {
+        if (confirm('Delete this lab?')) {
+            await storage.deleteOutsourceLab(id);
             loadAllData();
         }
     };
@@ -823,8 +928,10 @@ const Admin = () => {
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'pricing', label: 'Test Pricing (L2L)', icon: Tag },
         { id: 'employees', label: 'Employee Management', icon: Users },
         { id: 'referrals', label: 'Referral Management', icon: UserPlus },
+        { id: 'labs', label: 'Outsource Labs', icon: LayoutDashboard },
         { id: 'config', label: 'Lab Configuration', icon: Settings },
         { id: 'data', label: 'Data Management', icon: Database },
     ];
@@ -868,8 +975,10 @@ const Admin = () => {
             {/* Main Content Area */}
             <div className="min-h-[500px]">
                 {activeTab === 'dashboard' && <DashboardView stats={data.stats} logs={data.logs} />}
+                {activeTab === 'pricing' && <TestPricingManager />}
                 {activeTab === 'employees' && <EmployeeManagement users={data.users} onSave={handleUserSave} onDelete={handleUserDelete} onEdit={/* Logic handled in component state, but needs connection */ null} />}
-                {activeTab === 'referrals' && <ReferralManagement referrals={data.referrals} onSave={handleReferralSave} onDelete={handleReferralDelete} />}
+                {activeTab === 'referrals' && <ReferralManagement referrals={data.referrals} onAdd={handleReferralSave} onDelete={handleReferralDelete} />}
+                {activeTab === 'labs' && <OutsourceLabManagement labs={data.outsourceLabs} onAdd={handleOutsourceLabSave} onDelete={handleOutsourceLabDelete} />}
                 {activeTab === 'config' && <LabConfiguration
                     pathologistSignature={data.signature}
                     labTechSignature={data.labTechSignature}

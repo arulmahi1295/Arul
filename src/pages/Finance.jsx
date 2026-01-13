@@ -146,23 +146,37 @@ const Finance = () => {
             const partnerStats = {};
             orders.forEach(o => {
                 if (!o.tests) return;
+                const isOutsourcedOrder = o.processingMode === 'Outsource';
+                const partner = o.outsourceLab;
+
                 o.tests.forEach((t, index) => {
-                    if (t.labPartner && t.labPartner !== 'In-House') {
-                        const cost = t.outsourcedCost || 0;
-                        const partner = t.labPartner;
+                    // Logic: If order is outsourced, OR if individual test has labPartner override (future proofing)
+                    if (isOutsourcedOrder && partner) {
+                        const cost = t.l2lPrice || 0;
+                        const price = t.price || 0;
+                        const margin = price - cost;
+
                         list.push({
                             orderId: o.id,
                             patientName: o.patientName || o.patientId,
                             testName: t.name,
-                            labPartner: t.labPartner,
+                            labPartner: partner,
                             cost: cost,
+                            price: price,
+                            margin: margin,
                             status: t.settlementStatus || 'Pending',
                             testIndex: index,
                             sentDate: o.accessionDate || o.createdAt
                         });
-                        if (!partnerStats[partner]) partnerStats[partner] = { due: 0, paid: 0 };
-                        if (t.settlementStatus === 'Settled') partnerStats[partner].paid += cost;
-                        else partnerStats[partner].due += cost;
+
+                        if (!partnerStats[partner]) partnerStats[partner] = { due: 0, paid: 0, margin: 0 };
+
+                        if (t.settlementStatus === 'Settled') {
+                            partnerStats[partner].paid += cost;
+                        } else {
+                            partnerStats[partner].due += cost;
+                        }
+                        partnerStats[partner].margin += margin;
                     }
                 });
             });
@@ -207,18 +221,29 @@ const Finance = () => {
         const outsourcedTests = [];
         allOrders.forEach(o => {
             if (!o.tests) return;
+            const isOutsourcedOrder = o.processingMode === 'Outsource';
+            const partnerName = o.outsourceLab;
+
             o.tests.forEach(test => {
-                const isOutsourced = test.labPartner && test.labPartner !== 'In-House';
+                // Check if order is outsourced OR individual test (legacy support or future proof)
+                const isOutsourced = (isOutsourcedOrder && partnerName) || (test.labPartner && test.labPartner !== 'In-House');
+
                 const dateToCompare = o.accessionDate || o.createdAt;
                 if (isOutsourced && dateToCompare && dateToCompare.startsWith(selectedDateStr)) {
+                    const price = test.price || 0;
+                    const cost = test.l2lPrice || 0;
+
                     outsourcedTests.push({
                         orderId: o.id,
                         patientId: o.patientId,
                         testName: test.name,
                         testCode: test.code,
-                        labPartner: test.labPartner,
+                        labPartner: partnerName || test.labPartner,
                         sentDate: new Date(dateToCompare).toLocaleString(),
-                        status: o.status
+                        status: test.settlementStatus || 'Pending', // Use test level status if available
+                        price: price,
+                        cost: cost,
+                        margin: price - cost
                     });
                 }
             });
@@ -230,7 +255,10 @@ const Finance = () => {
             'Test Name': t.testName,
             'Lab Partner': t.labPartner,
             'Sent Date': t.sentDate,
-            'Status': t.status
+            'Status': t.status,
+            'MRP': t.price,
+            'L2L Cost': t.cost,
+            'Margin': t.margin
         }));
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wscols = Object.keys(exportData[0]).map(() => ({ wch: 20 }));
@@ -292,6 +320,9 @@ const Finance = () => {
         } else if (activeTab === 'trackers') {
             headers = ['Order ID', 'Patient', 'Date', 'Payment Status', 'Due Amount'];
             dataRows = reportData.map(d => [d.id, d.patientId, d.createdAt, 'Pending', d.totalAmount]);
+        } else if (activeTab === 'outsourcing') {
+            headers = ['Order ID', 'Patient', 'Test', 'Partner', 'Sent Date', 'MRP', 'Cost', 'Margin', 'Status'];
+            dataRows = reportData.map(d => [d.orderId, d.patientName, d.testName, d.labPartner, new Date(d.sentDate).toLocaleDateString(), d.price, d.cost, d.margin, d.status]);
         } else {
             headers = ['Order ID', 'Patient', 'Date', 'Payment Mode', 'Status', 'Amount'];
             dataRows = orders.map(o => [o.id, o.patientId, o.createdAt, o.paymentMode || 'Cash', o.status, o.totalAmount]);
@@ -547,16 +578,41 @@ const Finance = () => {
                                     {activeTab === 'daily' && (<><th className="px-6 py-4">Date</th><th className="px-6 py-4">Count</th><th className="px-6 py-4 text-right">Total Revenue</th></>)}
                                     {activeTab === 'tests' && (<><th className="px-6 py-4">Test Code</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Qty</th><th className="px-6 py-4 text-right">Revenue</th></>)}
                                     {activeTab === 'patients' && (<><th className="px-6 py-4">ID</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Visits</th><th className="px-6 py-4 text-right">Spent</th></>)}
-                                    {activeTab === 'outsourcing' && (<><th className="px-6 py-4">Partner</th><th className="px-6 py-4">Test</th><th className="px-6 py-4">Cost</th><th className="px-6 py-4 text-right">Status</th></>)}
+                                    {activeTab === 'outsourcing' && (<><th className="px-6 py-4">Test Info</th><th className="px-6 py-4 text-right">MRP</th><th className="px-6 py-4 text-right">L2L</th><th className="px-6 py-4 text-right">Margin</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th></>)}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {reportData.length === 0 ? <tr><td colSpan="4" className="text-center py-8 text-slate-400">No data available.</td></tr> : reportData.map((row, idx) => (
+                                {reportData.length === 0 ? <tr><td colSpan="6" className="text-center py-8 text-slate-400">No data available.</td></tr> : reportData.map((row, idx) => (
                                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
                                         {activeTab === 'daily' && (<><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.date}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">₹{row.revenue}</td></>)}
                                         {activeTab === 'tests' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.code}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
                                         {activeTab === 'patients' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.id}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.visits}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
-                                        {activeTab === 'outsourcing' && (<><td className="px-6 py-4 text-sm font-semibold text-slate-700">{row.labPartner}</td><td className="px-6 py-4 text-sm text-slate-600">{row.testName}</td><td className="px-6 py-4 text-sm text-rose-600">₹{row.cost}</td><td className="px-6 py-4 text-right"><span className={`text-xs font-bold px-2 py-1 rounded ${row.status === 'Settled' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{row.status}</span></td></>)}
+                                        {activeTab === 'outsourcing' && (
+                                            <>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-bold text-slate-800">{row.testName}</div>
+                                                    <div className="text-xs text-slate-500">{row.labPartner} | {new Date(row.sentDate).toLocaleDateString()}</div>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm font-medium text-slate-600 text-right">₹{row.price}</td>
+                                                <td className="px-6 py-4 text-sm font-medium text-rose-600 text-right">₹{row.cost}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">₹{row.margin}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${row.status === 'Settled' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        {row.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    {row.status !== 'Settled' && (
+                                                        <button
+                                                            onClick={() => handleSettleTest(row.orderId, row.testIndex)}
+                                                            className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors font-semibold"
+                                                        >
+                                                            Settle
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

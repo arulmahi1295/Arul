@@ -3,6 +3,8 @@ import {
     collection,
     addDoc,
     getDocs,
+    getDoc,
+    setDoc,
     query,
     where,
     orderBy,
@@ -17,6 +19,7 @@ const COLLECTIONS = {
     ORDERS: 'orders',
     USERS: 'users',
     REFERRALS: 'referrals',
+    OUTSOURCE_LABS: 'outsource_labs',
     HOME_COLLECTIONS: 'home_collections',
     SETTINGS: 'settings',
     INVENTORY: 'inventory'
@@ -188,6 +191,66 @@ export const storage = {
         }
     },
 
+    updateUser: async (id, updates) => {
+        const q = query(collection(db, COLLECTIONS.USERS), where('id', '==', id));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            await updateDoc(snap.docs[0].ref, updates);
+            return { ...snap.docs[0].data(), ...updates };
+        }
+    },
+
+    deleteUser: async (id) => {
+        const q = query(collection(db, COLLECTIONS.USERS), where('id', '==', id));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            await deleteDoc(snap.docs[0].ref);
+        }
+    },
+
+    // Outsource Lab Methods
+    getOutsourceLabs: async () => {
+        try {
+            const snap = await getDocs(collection(db, COLLECTIONS.OUTSOURCE_LABS));
+            if (snap.empty) {
+                const defaults = [
+                    { name: 'Lal PathLabs', type: 'Reference' },
+                    { name: 'Metropolis', type: 'Reference' },
+                    { name: 'Thyrocare', type: 'Reference' },
+                    { name: 'Redcliffe', type: 'Reference' },
+                    { name: 'Max Lab', type: 'Reference' },
+                    { name: 'Local Hospital Reference', type: 'Hospital' }
+                ];
+                const saved = [];
+                for (const d of defaults) {
+                    const newItem = { ...d, id: `LAB-${Math.floor(Math.random() * 10000)}`, createdAt: new Date().toISOString() };
+                    await addDoc(collection(db, COLLECTIONS.OUTSOURCE_LABS), newItem);
+                    saved.push(newItem);
+                }
+                return saved;
+            }
+            return snap.docs.map(d => ({ ...d.data(), firebaseId: d.id }));
+        } catch (e) { console.error(e); return []; }
+    },
+
+    saveOutsourceLab: async (labData) => {
+        const newItem = {
+            ...labData,
+            id: `LAB-${Date.now()}`,
+            createdAt: new Date().toISOString()
+        };
+        await addDoc(collection(db, COLLECTIONS.OUTSOURCE_LABS), newItem);
+        return newItem;
+    },
+
+    deleteOutsourceLab: async (id) => {
+        const q = query(collection(db, COLLECTIONS.OUTSOURCE_LABS), where('id', '==', id));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            await deleteDoc(snap.docs[0].ref);
+        }
+    },
+
     // Simplified methods for others
     getReferrals: async () => {
         const snap = await getDocs(collection(db, COLLECTIONS.REFERRALS));
@@ -198,6 +261,14 @@ export const storage = {
         await addDoc(collection(db, COLLECTIONS.REFERRALS), newItem);
         return newItem;
     },
+    updateReferral: async (id, updates) => {
+        const q = query(collection(db, COLLECTIONS.REFERRALS), where('id', '==', id));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            await updateDoc(snap.docs[0].ref, updates);
+            return { ...snap.docs[0].data(), ...updates };
+        }
+    },
     deleteReferral: async (id) => {
         // Need to find by custom ID then delete
         const q = query(collection(db, COLLECTIONS.REFERRALS), where('id', '==', id));
@@ -206,6 +277,28 @@ export const storage = {
             await deleteDoc(snap.docs[0].ref);
         }
         return []; // Return empty or fresh list?
+    },
+
+    // Referral Pricing Methods
+    getReferralPrices: async (referralId) => {
+        try {
+            const docRef = doc(db, 'referral_pricing', referralId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                return docSnap.data().prices || {};
+            }
+            return {};
+        } catch (e) { console.error("Error getting referral prices:", e); return {}; }
+    },
+
+    saveReferralPrices: async (referralId, prices) => {
+        try {
+            const docRef = doc(db, 'referral_pricing', referralId);
+            await setDoc(docRef, { prices }, { merge: true });
+        } catch (e) {
+            console.error("Error saving referral prices:", e);
+            throw e;
+        }
     },
 
     getHomeCollections: async () => {

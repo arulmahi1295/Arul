@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Plus, Trash2, Beaker, FileText, Printer, CheckCircle, Clock, History, Download, Edit2 } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 import { storage } from '../data/storage';
 import { useDebounce } from '../hooks/useDebounce';
 import { TEST_CATALOG } from '../data/testCatalog';
@@ -15,6 +17,8 @@ const Phlebotomy = () => {
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
     const [selectedTests, setSelectedTests] = useState([]);
+    const [l2lPrices, setL2lPrices] = useState({});
+    const [referralPrices, setReferralPrices] = useState({});
 
     // Patient Search State
     const [patientSearch, setPatientSearch] = useState('');
@@ -33,6 +37,7 @@ const Phlebotomy = () => {
     const [processingMode, setProcessingMode] = useState('In-House');
     const [outsourceLab, setOutsourceLab] = useState('');
     const [patientHistory, setPatientHistory] = useState([]);
+    const [outsourcePartners, setOutsourcePartners] = useState([]);
 
     // Feature: Edit Existing Order
     const [editingOrder, setEditingOrder] = useState(null);
@@ -43,9 +48,7 @@ const Phlebotomy = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [fullPatientDetails, setFullPatientDetails] = useState(null);
 
-    const OUTSOURCE_PARTNERS = [
-        'Lal PathLabs', 'Metropolis', 'Thyrocare', 'Redcliffe', 'Max Lab', 'Local Hospital Reference'
-    ];
+
 
     // TAT Calculation
     const calculateTAT = (tests) => {
@@ -63,6 +66,29 @@ const Phlebotomy = () => {
     };
 
     const tatInfo = calculateTAT(selectedTests);
+
+    // Fetch L2L Prices
+    useEffect(() => {
+        const fetchPrices = async () => {
+            try {
+                const querySnapshot = await getDocs(collection(db, 'test_pricing'));
+                const priceMap = {};
+                querySnapshot.forEach((doc) => {
+                    priceMap[doc.id] = doc.data().l2lPrice;
+                });
+                setL2lPrices(priceMap);
+            } catch (error) {
+                console.error("Error fetching L2L prices:", error);
+            }
+        };
+        fetchPrices();
+
+        const fetchLabs = async () => {
+            const labs = await storage.getOutsourceLabs();
+            setOutsourcePartners(labs);
+        };
+        fetchLabs();
+    }, []);
 
     // Initial Load - Check for Prefill OR Edit
     useEffect(() => {
@@ -170,10 +196,6 @@ const Phlebotomy = () => {
 
         // If we are editing an order, we should probably update the order's patientName too
         if (editingOrder) {
-            // We don't save to DB here, only when "Update Order" is clicked, 
-            // BUT user expectation is that the edit is saved.
-            // storage.updatePatient already saved it to Patient DB.
-            // We just update local state so when they click "Update Order", it uses new name.
             console.log("Patient updated, ready to save order with new details.");
         }
     };
@@ -193,10 +215,11 @@ const Phlebotomy = () => {
         setSelectedTests(selectedTests.filter(t => t.id !== testId));
     };
 
-
-
     const calculateSubtotal = () => {
-        return selectedTests.reduce((acc, curr) => acc + curr.price, 0);
+        return selectedTests.reduce((acc, curr) => {
+            const finalPrice = referralPrices[curr.code] !== undefined ? referralPrices[curr.code] : curr.price;
+            return acc + finalPrice;
+        }, 0);
     };
 
     const calculateTotal = () => {
@@ -221,17 +244,26 @@ const Phlebotomy = () => {
         }
     };
 
-
-
     const handleCreateOrder = async () => {
         if (!selectedPatient || selectedTests.length === 0) return;
         setOrderStatus('processing');
+
+        // Enrich tests with L2L Price and Referral Price
+        const enrichedTests = selectedTests.map(test => {
+            const finalPrice = referralPrices[test.code] !== undefined ? referralPrices[test.code] : test.price;
+            return {
+                ...test,
+                price: finalPrice, // Save the actual charged price
+                originalPrice: test.price, // Keep track of base MRP
+                l2lPrice: l2lPrices[test.code] || 0
+            };
+        });
 
         const orderData = {
             id: editingOrder ? editingOrder.id : `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
             patientId: selectedPatient.id,
             patientName: selectedPatient.name, // Uses updated name
-            tests: selectedTests,
+            tests: enrichedTests, // Use enriched tests
             subtotal: calculateSubtotal(),
             discount: discount,
             totalAmount: calculateTotal(),
@@ -499,8 +531,8 @@ const Phlebotomy = () => {
                                             className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm bg-white"
                                         >
                                             <option value="">-- Select --</option>
-                                            {OUTSOURCE_PARTNERS.map(partner => (
-                                                <option key={partner} value={partner}>{partner}</option>
+                                            {outsourcePartners.map(partner => (
+                                                <option key={partner.id || partner.name} value={partner.name}>{partner.name}</option>
                                             ))}
                                         </select>
                                     </div>

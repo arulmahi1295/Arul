@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    // Note: This requires Firebase Authentication to be implemented in the app.
+    // Current app uses custom localStorage auth which Firestore cannot see.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to check for specific roles (requires Custom Claims or User document lookup)
+    // function isAdmin() {
+    //   return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    // }
+
+    // PATIENTS: 
+    // Ideal: Only Staff/Admins can read/write.
+    // Current: Allow all (Required until Firebase Auth is implemented)
+    match /patients/{patientId} {
+      allow read, write: if true; // CHANGE to 'if isAuthenticated()' after Auth migration
+    }
+
+    // ORDERS:
+    // Ideal: Only Staff/Admins can read/write.
+    // Current: Allow all
+    match /orders/{orderId} {
+      allow read, write: if true; // CHANGE to 'if isAuthenticated()' after Auth migration
+    }
+
+    // USERS:
+    // Ideal: Only Admins can write. Authenticated users can read (for login verify).
+    // Current: Allow all
+    match /users/{userId} {
+      allow read, write: if true; // CHANGE to 'if isAdmin()' for write, 'if isAuthenticated()' for read
+    }
+
+    // REFERRALS, SETTINGS, INVENTORY:
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
