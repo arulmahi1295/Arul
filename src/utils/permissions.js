@@ -86,12 +86,22 @@ const rolePermissions = {
 // Page-Role mapping (which roles can access which pages)
 export const PAGE_PERMISSIONS = {
     '/': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Dashboard
-    '/patients': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN],
-    '/phlebotomy': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN],
-    '/reports': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN],
-    '/inventory': [ROLES.MANAGER, ROLES.ADMIN],
-    '/finance': [ROLES.MANAGER, ROLES.ADMIN],
-    '/admin': [ROLES.ADMIN]
+    '/register': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Patient Registration
+    '/phlebotomy': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Phlebotomy/Orders
+    '/billing-history': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Billing History
+    '/samples': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Sample Management
+    '/accession': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Accession
+    '/reports': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Reports
+    '/home-collection': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN], // Home Collection
+    '/inventory': [ROLES.MANAGER, ROLES.ADMIN], // Inventory - Manager+ only
+    '/finance': [ROLES.MANAGER, ROLES.ADMIN], // Finance - Manager+ only
+    '/admin': [ROLES.ADMIN], // Admin Console - Admin only
+
+    // Print routes - all authenticated users
+    '/print/invoice': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN],
+    '/print/labels': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN],
+    '/print/patient-card': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN],
+    '/print/report': [ROLES.STAFF, ROLES.MANAGER, ROLES.ADMIN]
 };
 
 /**

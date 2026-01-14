@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Leaf, CheckCircle2, Clock, Calendar } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react';
+
 import { storage } from '../data/storage';
 import Letterhead from './Letterhead';
 
@@ -130,29 +130,22 @@ const PrintInvoice = () => {
                 </div>
 
                 {/* Status Badge */}
-                <div className="flex justify-between items-start mb-6 z-10 relative">
-                    <div className="flex-1">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isPaid
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}>
-                            {isPaid ? (
-                                <>
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    PAID
-                                </>
-                            ) : (
-                                <>
-                                    <Clock className="h-3.5 w-3.5" />
-                                    PENDING
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* QR Code */}
-                    <div className="bg-white p-2 rounded-lg border-2 border-slate-200">
-                        <QRCodeSVG value={qrData} size={60} level="M" />
+                <div className="flex justify-end items-start mb-6 z-10 relative">
+                    <div className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold ${isPaid
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                        {isPaid ? (
+                            <>
+                                <CheckCircle2 className="h-4 w-4" />
+                                PAID
+                            </>
+                        ) : (
+                            <>
+                                <Clock className="h-4 w-4" />
+                                PENDING
+                            </>
+                        )}
                     </div>
                 </div>
 

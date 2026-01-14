@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Lazy Loading for Performance
 const Login = React.lazy(() => import('./pages/Login'));
@@ -27,14 +28,6 @@ const LoadingSpinner = () => (
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
   </div>
 );
-
-// RBAC Guard Component
-const ProtectedRoute = ({ isAllowed, redirectPath = '/', children }) => {
-  if (!isAllowed) {
-    return <Navigate to={redirectPath} replace />;
-  }
-  return children ? children : <Outlet />;
-};
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -81,43 +74,120 @@ function App() {
             isAuthenticated ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
           } />
 
-          {/* Protected Routes */}
+          {/* Protected Routes with Layout */}
           <Route path="/" element={
             isAuthenticated ? <Layout onLogout={handleLogout} userRole={userRole} /> : <Navigate to="/login" replace />
           }>
-            <Route index element={<Dashboard />} />
-            <Route path="register" element={<PatientRegistration />} />
-            <Route path="phlebotomy" element={<Phlebotomy />} />
-            <Route path="billing-history" element={<BillingHistory />} />
-            <Route path="/samples" element={<Samples />} />
-            <Route path="/accession" element={<Accession />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="home-collection" element={<HomeCollection />} />
+            {/* Dashboard - All roles */}
+            <Route index element={
+              <ProtectedRoute path="/">
+                <Dashboard />
+              </ProtectedRoute>
+            } />
 
-            {/* Restricted Routes - Only Admin */}
+            {/* Patient Registration - All roles */}
+            <Route path="register" element={
+              <ProtectedRoute path="/register">
+                <PatientRegistration />
+              </ProtectedRoute>
+            } />
+
+            {/* Phlebotomy - All roles */}
+            <Route path="phlebotomy" element={
+              <ProtectedRoute path="/phlebotomy">
+                <Phlebotomy />
+              </ProtectedRoute>
+            } />
+
+            {/* Billing History - All roles */}
+            <Route path="billing-history" element={
+              <ProtectedRoute path="/billing-history">
+                <BillingHistory />
+              </ProtectedRoute>
+            } />
+
+            {/* Samples - All roles */}
+            <Route path="/samples" element={
+              <ProtectedRoute path="/samples">
+                <Samples />
+              </ProtectedRoute>
+            } />
+
+            {/* Accession - All roles */}
+            <Route path="/accession" element={
+              <ProtectedRoute path="/accession">
+                <Accession />
+              </ProtectedRoute>
+            } />
+
+            {/* Reports - All roles */}
+            <Route path="/reports" element={
+              <ProtectedRoute path="/reports">
+                <Reports />
+              </ProtectedRoute>
+            } />
+
+            {/* Home Collection - All roles */}
+            <Route path="home-collection" element={
+              <ProtectedRoute path="/home-collection">
+                <HomeCollection />
+              </ProtectedRoute>
+            } />
+
+            {/* Finance - Manager and Admin only */}
             <Route path="/finance" element={
-              <ProtectedRoute isAllowed={userRole === 'Admin'} redirectPath="/">
+              <ProtectedRoute path="/finance">
                 <Finance />
               </ProtectedRoute>
             } />
 
+            {/* Inventory - Manager and Admin only */}
             <Route path="/inventory" element={
-              <ProtectedRoute isAllowed={userRole === 'Admin'} redirectPath="/">
+              <ProtectedRoute path="/inventory">
                 <Inventory />
               </ProtectedRoute>
             } />
           </Route>
 
-          {/* Print Routes */}
+          {/* Admin Console - Admin only (outside Layout) */}
           <Route path="/admin" element={
-            <ProtectedRoute isAllowed={userRole === 'Admin'} redirectPath="/">
+            <ProtectedRoute path="/admin">
               <Admin />
             </ProtectedRoute>
           } />
-          <Route path="/print/invoice" element={isAuthenticated ? <PrintInvoice /> : <Navigate to="/login" />} />
-          <Route path="/print/labels" element={isAuthenticated ? <PrintLabel /> : <Navigate to="/login" />} />
-          <Route path="/print/patient-card" element={isAuthenticated ? <PrintPatientCard /> : <Navigate to="/login" />} />
-          <Route path="/print/report" element={isAuthenticated ? <PrintReport /> : <Navigate to="/login" />} />
+
+          {/* Print Routes - All authenticated users */}
+          <Route path="/print/invoice" element={
+            isAuthenticated ? (
+              <ProtectedRoute path="/print/invoice">
+                <PrintInvoice />
+              </ProtectedRoute>
+            ) : <Navigate to="/login" />
+          } />
+
+          <Route path="/print/labels" element={
+            isAuthenticated ? (
+              <ProtectedRoute path="/print/labels">
+                <PrintLabel />
+              </ProtectedRoute>
+            ) : <Navigate to="/login" />
+          } />
+
+          <Route path="/print/patient-card" element={
+            isAuthenticated ? (
+              <ProtectedRoute path="/print/patient-card">
+                <PrintPatientCard />
+              </ProtectedRoute>
+            ) : <Navigate to="/login" />
+          } />
+
+          <Route path="/print/report" element={
+            isAuthenticated ? (
+              <ProtectedRoute path="/print/report">
+                <PrintReport />
+              </ProtectedRoute>
+            ) : <Navigate to="/login" />
+          } />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

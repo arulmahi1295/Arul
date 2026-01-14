@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, UserPlus, Beaker, FileText, Menu, X, Activity, DollarSign, Shield, LogOut, Car, History, Leaf, Package } from 'lucide-react';
+import { canAccessPage } from '../utils/permissions';
 
 const Layout = ({ onLogout, userRole }) => {
     const location = useLocation();
@@ -28,7 +29,8 @@ const Layout = ({ onLogout, userRole }) => {
     // Use prop if available, otherwise state
     const currentRole = userRole || user.role;
 
-    const navigation = [
+    // Define all navigation items with their required paths
+    const allNavigationItems = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
         { name: 'Register Patient', href: '/register', icon: UserPlus },
         { name: 'Phlebotomy', href: '/phlebotomy', icon: Beaker },
@@ -36,14 +38,15 @@ const Layout = ({ onLogout, userRole }) => {
         { name: 'Home Visit', href: '/home-collection', icon: Car },
         { name: 'Accession', href: '/accession', icon: Activity },
         { name: 'Reports', href: '/reports', icon: FileText },
-
-        // Conditional Items based on Role
-        ...(currentRole === 'Admin' ? [
-            { name: 'Finance', href: '/finance', icon: DollarSign },
-            { name: 'Inventory', href: '/inventory', icon: Package },
-            { name: 'Admin', href: '/admin', icon: Shield },
-        ] : [])
+        { name: 'Finance', href: '/finance', icon: DollarSign },
+        { name: 'Inventory', href: '/inventory', icon: Package },
+        { name: 'Admin', href: '/admin', icon: Shield },
     ];
+
+    // Filter navigation based on user's role and permissions
+    const navigation = allNavigationItems.filter(item =>
+        canAccessPage(currentRole, item.href)
+    );
 
     return (
         <div className="min-h-screen bg-slate-50 flex">

@@ -3,6 +3,7 @@ import { FileText, Download, Send, Eye, Search, AlertTriangle, PenTool, Lock, Me
 import { storage } from '../data/storage';
 import { useDebounce } from '../hooks/useDebounce';
 import ResultEntryModal from '../components/ResultEntryModal';
+import { logReport } from '../utils/activityLogger';
 
 const Reports = () => {
     const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'ready'
@@ -52,6 +53,13 @@ const Reports = () => {
             status: status,
             completedAt: isFinalized ? new Date().toISOString() : null
         });
+
+        // Log activity
+        if (isFinalized) {
+            await logReport.finalized(orderId, selectedOrder?.patientId || 'Unknown', results.length);
+        } else {
+            await logReport.updated(orderId, { resultCount: results.length });
+        }
 
         console.log('Report Update:', updatedOrder);
         setSelectedOrder(null);
@@ -146,7 +154,7 @@ const Reports = () => {
                                         <FileText className="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-slate-800">{order.patientId}</h3>
+                                        <h3 className="text-sm font-bold text-slate-800">{order.patientName || order.patientId}</h3>
                                         <p className="text-xs text-slate-500 flex items-center mt-0.5">
                                             {order.id} • {order.tests.length} Tests
                                         </p>
@@ -171,13 +179,16 @@ const Reports = () => {
                                         ) : (
                                             <>
                                                 <button
-                                                    onClick={() => {
+                                                    onClick={async () => {
                                                         if (!order.patientPhone) {
                                                             alert('Patient phone number not found!');
                                                             return;
                                                         }
                                                         const text = `Dear ${order.patientName}, Please find your test report attached. Tests: ${order.tests?.map(t => t.name).join(', ')}. GreenHealth Lab.`;
                                                         window.open(`https://wa.me/91${order.patientPhone}?text=${encodeURIComponent(text)}`, '_blank');
+
+                                                        // Log WhatsApp share
+                                                        await logReport.shared(order.id, order.patientId, 'WhatsApp');
                                                     }}
                                                     className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors mr-2"
                                                     title="Share on WhatsApp"
@@ -267,6 +278,9 @@ const PrintButton = ({ order }) => {
 
         sessionStorage.setItem('print_report_data', JSON.stringify(reportPayload));
         window.open('/print/report', '_blank');
+
+        // Log report print/download
+        await logReport.printed(order.id, pid);
     };
 
     if (isLocked) {
