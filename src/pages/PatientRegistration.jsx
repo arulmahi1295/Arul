@@ -52,7 +52,8 @@ const PatientRegistration = () => {
         allergies: '',
         paymentMode: 'Cash',
         source: 'Walk-in',
-        referralId: 'Self'
+        referralId: 'Self',
+        homeCollectionCharges: '' // New field
     });
     const [referrals, setReferrals] = useState([]);
     const [recentPatients, setRecentPatients] = useState([]);
@@ -85,6 +86,11 @@ const PatientRegistration = () => {
             if (new Date(formData.dob) > new Date()) newErrors.dob = 'Future date not allowed';
         }
         if (!/^\d{10}$/.test(formData.phone)) newErrors.phone = 'Phone must be 10 digits';
+        // Validate Home Collection Charges if source is Home Collection
+        if (formData.source === 'Home Collection' && !formData.homeCollectionCharges) {
+            // Optional: make it required or default to 0. Let's not block, but good to know.
+            // newErrors.homeCollectionCharges = "Required";
+        }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -141,7 +147,13 @@ const PatientRegistration = () => {
 
     const handleProceed = () => {
         navigate('/phlebotomy', {
-            state: { prefillPatient: formData.fullName, patientId: savedPatientId, patientName: formData.fullName, paymentMode: formData.paymentMode }
+            state: {
+                prefillPatient: formData.fullName,
+                patientId: savedPatientId,
+                patientName: formData.fullName,
+                paymentMode: formData.paymentMode,
+                homeCollectionCharges: formData.source === 'Home Collection' ? parseInt(formData.homeCollectionCharges || 0) : 0 // Pass Charge
+            }
         });
     };
 
@@ -189,7 +201,7 @@ const PatientRegistration = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <SelectField label="Source" name="source" value={formData.source} onChange={handleChange}>
                                             <option value="Walk-in">Walk-in</option>
-                                            <option value="Home Collection">Home</option>
+                                            <option value="Home Collection">Home Collection</option>
                                             <option value="Corporate">Corporate</option>
                                         </SelectField>
                                         <SelectField label="Referral" name="referralId" value={formData.referralId} onChange={handleChange}>
@@ -197,6 +209,20 @@ const PatientRegistration = () => {
                                             {referrals.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                         </SelectField>
                                     </div>
+                                    {formData.source === 'Home Collection' && (
+                                        <div className="md:col-span-2 bg-emerald-50 rounded-xl p-4 border border-emerald-100 animate-in fade-in slide-in-from-top-2">
+                                            <InputField
+                                                label="Home Collection Charges (₹)"
+                                                icon={MapPin}
+                                                type="number"
+                                                name="homeCollectionCharges"
+                                                value={formData.homeCollectionCharges}
+                                                onChange={handleChange}
+                                                placeholder="Enter amount"
+                                                min="0"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </section>
 
