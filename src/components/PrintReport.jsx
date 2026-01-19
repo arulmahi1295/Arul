@@ -3,11 +3,12 @@ import { useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import Letterhead from './Letterhead';
 import { storage } from '../data/storage';
-import { TEST_CATALOG } from '../data/testCatalog';
+import { useTests } from '../contexts/TestContext';
 import { Download, Printer, MessageCircle, Leaf, AlertCircle, CheckCircle2, TrendingUp, TrendingDown } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
 const PrintReport = () => {
+    const { tests } = useTests();
     const location = useLocation();
     const [reportData, setReportData] = useState(null);
     const [signature, setSignature] = useState(null);
@@ -265,7 +266,7 @@ const PrintReport = () => {
                                 // Group tests by category
                                 const grouped = {};
                                 reportData.tests.forEach(test => {
-                                    const catalogItem = TEST_CATALOG.find(t => t.name === test.name) || {};
+                                    const catalogItem = tests.find(t => t.name === test.name) || {};
                                     const category = catalogItem.category || 'Other Tests';
                                     if (!grouped[category]) {
                                         grouped[category] = [];

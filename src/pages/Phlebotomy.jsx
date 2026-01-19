@@ -5,13 +5,12 @@ import { db } from '../lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { storage } from '../data/storage';
 import { useDebounce } from '../hooks/useDebounce';
-import { TEST_CATALOG } from '../data/testCatalog';
+import { useTests } from '../contexts/TestContext';
 import EditPatientModal from '../components/EditPatientModal';
 import { logOrder } from '../utils/activityLogger';
 
-const MOCK_TESTS = TEST_CATALOG;
-
 const Phlebotomy = () => {
+    const { tests } = useTests();
     const location = useLocation();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
@@ -201,7 +200,7 @@ const Phlebotomy = () => {
         }
     };
 
-    const filteredTests = MOCK_TESTS.filter(test =>
+    const filteredTests = tests.filter(test =>
         test.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         test.code.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
     );

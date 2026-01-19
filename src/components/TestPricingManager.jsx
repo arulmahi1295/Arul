@@ -1,41 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, getDocs, doc, setDoc, query } from 'firebase/firestore';
-import { TEST_CATALOG } from '../data/testCatalog';
+import { doc, setDoc } from 'firebase/firestore';
+import { useTests } from '../contexts/TestContext';
 import { Save, Search, RefreshCw, AlertCircle, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const TestPricingManager = () => {
-    const [prices, setPrices] = useState({});
-    const [loading, setLoading] = useState(true);
+    const { tests, loading, refreshTests } = useTests();
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [message, setMessage] = useState(null);
 
-    // Fetch existing dynamic prices from Firestore
-    useEffect(() => {
-        fetchPrices();
-    }, []);
-
-    const fetchPrices = async () => {
-        setLoading(true);
-        try {
-            const querySnapshot = await getDocs(collection(db, 'test_pricing'));
-            const priceMap = {};
-            querySnapshot.forEach((doc) => {
-                priceMap[doc.id] = doc.data().l2lPrice;
-            });
-            setPrices(priceMap);
-        } catch (error) {
-            console.error("Error fetching prices:", error);
-            setMessage({ type: 'error', text: 'Failed to load prices.' });
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Local state to track price edits before saving
+    const [editedPrices, setEditedPrices] = useState({});
 
     const handlePriceChange = (testCode, newPrice) => {
-        setPrices(prev => ({
+        setEditedPrices(prev => ({
             ...prev,
             [testCode]: newPrice
         }));
@@ -45,7 +25,7 @@ const TestPricingManager = () => {
     const handleDownloadTemplate = () => {
         const template = [
             ['Test Code', 'Test Name', 'MRP', 'L2L Cost'],
-            ...TEST_CATALOG.map(t => [t.code, t.name, t.price, ''])
+            ...tests.map(t => [t.code, t.name, t.price, ''])
         ];
         const ws = XLSX.utils.aoa_to_sheet(template);
         const wb = XLSX.utils.book_new();
@@ -79,9 +59,9 @@ const TestPricingManager = () => {
                     const price = parseFloat(priceRaw);
 
                     if (!isNaN(price)) {
-                        let test = TEST_CATALOG.find(t => t.code === code);
+                        let test = tests.find(t => t.code === code);
                         if (!test && rowNormalized['test name']) {
-                            test = TEST_CATALOG.find(t => t.name.toLowerCase() === rowNormalized['test name'].toLowerCase());
+                            test = tests.find(t => t.name.toLowerCase() === rowNormalized['test name'].toLowerCase());
                         }
 
                         if (test) {
@@ -91,7 +71,7 @@ const TestPricingManager = () => {
                     }
                 });
 
-                setPrices(newPrices);
+                setEditedPrices(newPrices);
                 setMessage({ type: 'success', text: `Imported ${matchCount} prices. Click Save to persist.` });
             } catch (error) {
                 console.error(error);
@@ -110,8 +90,8 @@ const TestPricingManager = () => {
             // Refinement: Only save what changed. 
             // Better Strategy: Save individual entries on blur or a bulk save.
 
-            const promises = Object.entries(prices).map(([code, price]) =>
-                setDoc(doc(db, 'test_pricing', code), {
+            const promises = Object.entries(editedPrices).map(([code, price]) =>
+                setDoc(doc(db, 'tests', code), { // Update direct test document
                     l2lPrice: parseFloat(price),
                     updatedAt: new Date().toISOString()
                 }, { merge: true })
@@ -119,6 +99,8 @@ const TestPricingManager = () => {
 
             await Promise.all(promises);
             setMessage({ type: 'success', text: 'All prices updated successfully!' });
+            refreshTests(); // Reload data from Firestore to reflect changes
+            setEditedPrices({});
         } catch (error) {
             console.error("Error saving prices:", error);
             setMessage({ type: 'error', text: 'Failed to save prices.' });
@@ -128,7 +110,7 @@ const TestPricingManager = () => {
     };
 
     // Filter tests
-    const filteredTests = TEST_CATALOG.filter(test =>
+    const filteredTests = tests.filter(test =>
         test.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         test.code.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -155,7 +137,7 @@ const TestPricingManager = () => {
                     <div className="w-px h-8 bg-slate-200 mx-1 hidden sm:block"></div>
 
                     <button
-                        onClick={fetchPrices}
+                        onClick={refreshTests}
                         className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors"
                         title="Refresh Prices"
                     >
@@ -216,7 +198,7 @@ const TestPricingManager = () => {
                                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">₹</span>
                                             <input
                                                 type="number"
-                                                value={prices[test.code] || ''}
+                                                value={editedPrices[test.code] !== undefined ? editedPrices[test.code] : (test.l2lPrice || '')}
                                                 onChange={(e) => handlePriceChange(test.code, e.target.value)}
                                                 placeholder="0"
                                                 className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
@@ -238,7 +220,7 @@ const TestPricingManager = () => {
             </div>
 
             <div className="text-center text-slate-400 text-sm">
-                Showing {filteredTests.length} of {TEST_CATALOG.length} tests
+                Showing {filteredTests.length} of {tests.length} tests
             </div>
         </div>
     );

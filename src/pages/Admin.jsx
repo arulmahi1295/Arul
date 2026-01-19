@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag, ClipboardList, Filter, Search, Calendar, User as UserIcon } from 'lucide-react';
+import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag, ClipboardList, Filter, Search, Calendar, User as UserIcon, Beaker } from 'lucide-react';
 import { storage } from '../data/storage';
 import { TEST_CATALOG } from '../data/testCatalog';
 import TestPricingManager from '../components/TestPricingManager';
+import TestMaster from '../components/TestMaster';
 import ReferralPriceManager from '../components/ReferralPriceManager'; // New Import
 import { logAdmin } from '../utils/activityLogger';
 
@@ -1244,6 +1245,7 @@ const Admin = () => {
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'tests', label: 'Test Master', icon: Beaker }, // New Tab
         { id: 'pricing', label: 'Test Pricing (L2L)', icon: Tag },
         { id: 'employees', label: 'Employee Management', icon: Users },
         { id: 'referrals', label: 'Referral Management', icon: UserPlus },
@@ -1326,6 +1328,7 @@ const Admin = () => {
 
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {activeTab === 'dashboard' && <DashboardView stats={data.stats} logs={data.logs} />}
+                            {activeTab === 'tests' && <TestMaster />}
                             {activeTab === 'pricing' && <TestPricingManager />}
                             {activeTab === 'employees' && <EmployeeManagement users={data.users} onSave={handleUserSave} onDelete={handleUserDelete} onEdit={null} />}
                             {activeTab === 'referrals' && <ReferralManagement referrals={data.referrals} onAdd={handleReferralSave} onDelete={handleReferralDelete} />}

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Save, X, AlertCircle, CheckCircle, RotateCcw, Upload, Download } from 'lucide-react';
 import { storage } from '../data/storage';
-import { TEST_CATALOG } from '../data/testCatalog';
+import { useTests } from '../contexts/TestContext';
 import * as XLSX from 'xlsx';
 
 // Component to manage custom prices for a specific referral
 const ReferralPriceManager = ({ referral, onClose }) => {
+    const { tests } = useTests();
     const [searchTerm, setSearchTerm] = useState('');
     const [customPrices, setCustomPrices] = useState({});
     const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +40,7 @@ const ReferralPriceManager = ({ referral, onClose }) => {
         if (!confirm(`Apply ${globalDiscount}% discount to ALL tests for ${referral.name}? This will overwrite current custom prices.`)) return;
 
         const newPrices = {};
-        TEST_CATALOG.forEach(test => {
+        tests.forEach(test => {
             newPrices[test.code] = Math.round(test.price * (1 - globalDiscount / 100));
         });
         setCustomPrices(newPrices);
@@ -50,7 +51,7 @@ const ReferralPriceManager = ({ referral, onClose }) => {
     const handleDownloadTemplate = () => {
         const template = [
             ['Test Code', 'Test Name', 'Base MRP', 'Custom Price'],
-            ...TEST_CATALOG.map(t => [t.code, t.name, t.price, '']) // Pre-fill catalog for easy editing
+            ...tests.map(t => [t.code, t.name, t.price, '']) // Pre-fill catalog for easy editing
         ];
         const ws = XLSX.utils.aoa_to_sheet(template);
         const wb = XLSX.utils.book_new();
@@ -85,9 +86,9 @@ const ReferralPriceManager = ({ referral, onClose }) => {
                     const price = parseInt(priceRaw);
 
                     if (!isNaN(price)) {
-                        let test = TEST_CATALOG.find(t => t.code === code);
+                        let test = tests.find(t => t.code === code);
                         if (!test && rowNormalized['test name']) {
-                            test = TEST_CATALOG.find(t => t.name.toLowerCase() === rowNormalized['test name'].toLowerCase());
+                            test = tests.find(t => t.name.toLowerCase() === rowNormalized['test name'].toLowerCase());
                         }
 
                         if (test) {
@@ -127,7 +128,7 @@ const ReferralPriceManager = ({ referral, onClose }) => {
         }
     };
 
-    const filteredTests = TEST_CATALOG.filter(test =>
+    const filteredTests = tests.filter(test =>
         test.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         test.code.toLowerCase().includes(searchTerm.toLowerCase())
     );
