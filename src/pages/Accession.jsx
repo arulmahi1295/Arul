@@ -147,7 +147,20 @@ const Accession = () => {
         o.patientId.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const labPartners = ['In-House', 'Lal PathLabs', 'Thyrocare', 'Metropolis', 'Redcliffe'];
+    const [labPartners, setLabPartners] = useState(['In-House']);
+
+    useEffect(() => {
+        loadLabPartners();
+    }, []);
+
+    const loadLabPartners = async () => {
+        const labs = await storage.getOutsourceLabs();
+        // Assuming labs is array of objects { name, type, ... }
+        // We want a simple list of names for the dropdown, starting with In-House
+        const names = ['In-House', ...labs.map(l => l.name)];
+        // Remove duplicates just in case
+        setLabPartners([...new Set(names)]);
+    };
 
     // Helper to calculate TAT
     const getTATInfo = (order) => {
@@ -205,9 +218,12 @@ const Accession = () => {
     const renderAssignmentView = () => {
         if (displayedOrders.length === 0) {
             return (
-                <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
-                    <PackageCheck className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                    <p className="text-lg font-medium text-slate-500">No orders to assign.</p>
+                <div className="glass-card flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-500">
+                    <div className="bg-slate-50 p-6 rounded-full mb-4 shadow-inner">
+                        <PackageCheck className="h-12 w-12 text-slate-300" />
+                    </div>
+                    <p className="text-xl font-bold text-slate-700">All caught up!</p>
+                    <p className="text-slate-400">No pending orders to assign.</p>
                 </div>
             );
         }
@@ -215,13 +231,16 @@ const Accession = () => {
         const selectedOrder = displayedOrders.find(o => o.id === selectedOrderId) || displayedOrders[0];
 
         return (
-            <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-250px)] min-h-[600px]">
+            <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-280px)] min-h-[600px]">
                 {/* Left Panel: List */}
-                <div className="lg:w-1/3 bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-sm">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                        <h3 className="font-bold text-slate-700">Pending Assignment ({displayedOrders.length})</h3>
+                <div className="lg:w-1/3 glass-card flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-500">
+                    <div className="p-4 border-b border-white/50 bg-white/40 backdrop-blur-sm">
+                        <h3 className="font-bold text-slate-700 flex items-center">
+                            <span className="w-2 h-2 rounded-full bg-indigo-500 mr-2 animate-pulse"></span>
+                            Pending Assignment ({displayedOrders.length})
+                        </h3>
                     </div>
-                    <div className="overflow-y-auto flex-1 p-2 space-y-2">
+                    <div className="overflow-y-auto flex-1 p-3 space-y-3 custom-scrollbar">
                         {displayedOrders.map(order => {
                             const { tatLimit, isOverdue } = getTATInfo(order);
                             const isSelected = selectedOrder && selectedOrder.id === order.id;
@@ -232,27 +251,36 @@ const Accession = () => {
                                 <div
                                     key={order.id}
                                     onClick={() => setSelectedOrderId(order.id)}
-                                    className={`p-3 rounded-xl border cursor-pointer transition-all ${isSelected
-                                        ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200 shadow-sm'
-                                        : 'bg-white border-slate-100 hover:border-indigo-100 hover:bg-slate-50'
+                                    className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${isSelected
+                                        ? 'bg-gradient-to-r from-indigo-50 to-white border-indigo-200 ring-1 ring-indigo-200 shadow-md transform scale-[1.02]'
+                                        : 'bg-white/50 border-white/60 hover:border-indigo-200 hover:bg-white/80 hover:shadow-sm'
                                         }`}
                                 >
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${isSelected ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-md ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500'}`}>
                                             {order.id}
                                         </span>
-                                        {isOverdue && <AlertCircle className="h-3 w-3 text-rose-500" />}
+                                        {isOverdue && <div className="flex items-center text-rose-500 text-[10px] font-bold bg-rose-50 px-2 py-0.5 rounded-full"><AlertCircle className="h-3 w-3 mr-1" /> OVERDUE</div>}
                                     </div>
-                                    <h4 className={`font-bold text-sm mb-1 ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>
+                                    <h4 className={`font-bold text-sm mb-2 ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>
                                         {order.patientName || order.patientId}
                                     </h4>
                                     <div className="flex justify-between items-center text-xs">
-                                        <span className={isOverdue ? 'text-rose-600 font-medium' : 'text-slate-400'}>
-                                            TAT: {tatLimit.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${assignedCount === totalTests ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                            {assignedCount}/{totalTests} Assigned
-                                        </span>
+                                        <div className="flex items-center text-slate-500">
+                                            <Clock className="h-3 w-3 mr-1" />
+                                            {tatLimit.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+
+                                        {/* Progress Bar */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-500 ${assignedCount === totalTests ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                                    style={{ width: `${(assignedCount / totalTests) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                            <span className="font-bold text-slate-600">{assignedCount}/{totalTests}</span>
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -261,77 +289,101 @@ const Accession = () => {
                 </div>
 
                 {/* Right Panel: Detail */}
-                <div className="lg:w-2/3 bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-lg">
+                <div className="lg:w-2/3 glass-card flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500 delay-100">
                     {selectedOrder ? (
                         <>
                             {/* Detail Header */}
-                            <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/30">
+                            <div className="p-6 border-b border-white/50 bg-gradient-to-b from-white/60 to-white/30 backdrop-blur-sm flex justify-between items-start">
                                 <div>
                                     <div className="flex items-center gap-3 mb-2">
-                                        <h2 className="text-2xl font-bold text-slate-800">{selectedOrder.patientName || selectedOrder.patientId}</h2>
-                                        <span className="font-mono text-sm text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">{selectedOrder.id}</span>
+                                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{selectedOrder.patientName || selectedOrder.patientId}</h2>
                                     </div>
-                                    <div className="flex gap-4 text-sm text-slate-500">
-                                        <div className="flex items-center">
-                                            <Clock className="h-4 w-4 mr-1.5 text-slate-400" />
+                                    <div className="flex gap-4 text-sm font-medium text-slate-500">
+                                        <div className="flex items-center bg-white/50 px-3 py-1 rounded-lg border border-white/50">
+                                            <Clock className="h-4 w-4 mr-2 text-indigo-400" />
                                             Received: {new Date(selectedOrder.collectionDate || selectedOrder.createdAt).toLocaleString()}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-sm font-medium text-slate-500 mb-1">Status</div>
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Current Status</div>
                                     {selectedOrder.tests.every(t => t.labPartner) ? (
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-emerald-100 text-emerald-700">
-                                            <CheckCircle className="h-4 w-4 mr-1.5" /> Ready to Process
-                                        </span>
+                                        <div className="flex flex-col items-end animate-in zoom-in spin-in-3 duration-300">
+                                            <span className="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20">
+                                                <CheckCircle className="h-4 w-4 mr-2" /> Ready
+                                            </span>
+                                            <span className="text-[10px] text-emerald-600 mt-1 font-medium">All labs assigned</span>
+                                        </div>
                                     ) : (
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-amber-100 text-amber-700">
-                                            Action Required
-                                        </span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold bg-white text-amber-600 border border-amber-200 shadow-sm">
+                                                <div className="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-pulse"></div>
+                                                Action Required
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 mt-1 font-medium">Please assign labs below</span>
+                                        </div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Detail Body (Scrollable) */}
-                            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+                            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30 custom-scrollbar">
                                 <div className="space-y-4">
                                     {selectedOrder.tests.map((test, index) => (
-                                        <div key={index} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <h4 className="font-bold text-slate-700">{test.name}</h4>
-                                                    <span className="text-[10px] font-mono text-slate-400 border border-slate-100 px-1.5 rounded">{test.code}</span>
-                                                </div>
-                                                <div className="text-xs text-slate-500">{test.category || 'General'}</div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 w-full sm:w-auto">
-                                                <div className="flex flex-col">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">Assigned Lab</label>
-                                                    <select
-                                                        className={`w-48 px-3 py-2 rounded-lg border text-sm font-medium focus:ring-2 outline-none transition-all cursor-pointer ${test.labPartner ? 'border-indigo-300 bg-indigo-50 text-indigo-700 focus:border-indigo-500' : 'border-slate-300 bg-white text-slate-600'}`}
-                                                        value={test.labPartner || ''}
-                                                        onChange={(e) => handleAssignLab(selectedOrder.id, index, e.target.value, test.outsourcedCost)}
-                                                    >
-                                                        <option value="" disabled>Select Lab Partner</option>
-                                                        {labPartners.map(lab => (
-                                                            <option key={lab} value={lab}>{lab}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                {test.labPartner && test.labPartner !== 'In-House' && (
-                                                    <div className="flex flex-col animate-in fade-in slide-in-from-left-2">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cost (₹)</label>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            className="w-24 px-3 py-2 rounded-lg border border-slate-300 text-sm font-medium focus:border-indigo-500 focus:ring-2 outline-none text-right"
-                                                            value={test.outsourcedCost || ''}
-                                                            onChange={(e) => handleAssignLab(selectedOrder.id, index, test.labPartner, e.target.value)}
-                                                        />
+                                        <div key={index} className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-white shadow-sm hover:shadow-md transition-all duration-300 group">
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <h4 className="font-bold text-indigo-900 text-lg">{test.name}</h4>
+                                                        <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{test.code}</span>
                                                     </div>
-                                                )}
+                                                    <div className="text-xs font-medium text-slate-500 bg-slate-50 inline-block px-2 py-1 rounded-md">
+                                                        {test.category || 'General'}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                    <div className="flex flex-col w-full sm:w-56">
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Assigned Lab Partner</label>
+                                                        <div className="relative">
+                                                            <Building2 className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none transition-colors ${test.labPartner ? (test.labPartner === 'In-House' ? 'text-emerald-500' : 'text-indigo-500') : 'text-slate-400'}`} />
+                                                            <select
+                                                                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm font-bold focus:ring-4 outline-none transition-all cursor-pointer appearance-none ${test.labPartner
+                                                                    ? (test.labPartner === 'In-House'
+                                                                        ? 'border-emerald-200 bg-emerald-50/50 text-emerald-800 focus:border-emerald-500 focus:ring-emerald-500/20'
+                                                                        : 'border-indigo-200 bg-indigo-50/50 text-indigo-800 focus:border-indigo-500 focus:ring-indigo-500/20')
+                                                                    : 'border-slate-200 bg-white text-slate-600 focus:border-indigo-400 focus:ring-indigo-500/10 hover:border-indigo-200'}`}
+                                                                value={test.labPartner || ''}
+                                                                onChange={(e) => handleAssignLab(selectedOrder.id, index, e.target.value, test.outsourcedCost)}
+                                                            >
+                                                                <option value="" disabled>Select Lab Partner</option>
+                                                                {labPartners.map(lab => (
+                                                                    <option key={lab} value={lab}>{lab}</option>
+                                                                ))}
+                                                            </select>
+                                                            {/* Custom Dropdown Arrow */}
+                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {test.labPartner && test.labPartner !== 'In-House' && (
+                                                        <div className="flex flex-col w-28 animate-in fade-in slide-in-from-left-2 duration-300">
+                                                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Cost (₹)</label>
+                                                            <div className="relative">
+                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                                                                <input
+                                                                    type="number"
+                                                                    placeholder="0"
+                                                                    className="w-full pl-7 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm font-bold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-right transition-all"
+                                                                    value={test.outsourcedCost || ''}
+                                                                    onChange={(e) => handleAssignLab(selectedOrder.id, index, test.labPartner, e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -340,8 +392,11 @@ const Accession = () => {
                         </>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                            <Truck className="h-16 w-16 mb-4 text-slate-200" />
-                            <p>Select an order to assign labs</p>
+                            <div className="bg-slate-50 p-6 rounded-full shadow-inner mb-6">
+                                <Truck className="h-16 w-16 text-slate-300" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-600">No Order Selected</h3>
+                            <p>Select a pending order from the list to assign labs</p>
                         </div>
                     )}
                 </div>
@@ -499,8 +554,8 @@ const Accession = () => {
                                                             <div key={index} className="flex items-center justify-between text-xs group/item">
                                                                 <span className="text-slate-500 truncate max-w-[120px] mr-2">{test.name}</span>
                                                                 <span className={`font-semibold px-2 py-0.5 rounded-md border ${test.labPartner === 'In-House' || !test.labPartner
-                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                                        : 'bg-violet-50 text-violet-700 border-violet-100'
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                                    : 'bg-violet-50 text-violet-700 border-violet-100'
                                                                     }`}>
                                                                     {test.labPartner || 'In-House'}
                                                                 </span>

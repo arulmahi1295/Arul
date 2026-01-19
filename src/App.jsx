@@ -25,8 +25,28 @@ const PrintPatientCard = React.lazy(() => import('./components/PrintPatientCard'
 const PrintReport = React.lazy(() => import('./components/PrintReport'));
 
 const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen bg-slate-50">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 fixed inset-0 z-50 overflow-hidden">
+    {/* Background Mesh for Loader */}
+    <div className="absolute inset-0 opacity-30 bg-[radial-gradient(at_50%_50%,rgba(99,102,241,0.15)_0,transparent_50%)]"></div>
+
+    <div className="relative flex flex-col items-center animate-in fade-in zoom-in duration-500">
+      <div className="relative mb-8">
+        {/* Outer Ring */}
+        <div className="h-20 w-20 rounded-full border-4 border-slate-100/50"></div>
+        {/* Spinning Gradient Ring */}
+        <div className="absolute inset-0 h-20 w-20 rounded-full border-4 border-t-indigo-600 border-r-violet-500 border-b-transparent border-l-transparent animate-spin"></div>
+        {/* Inner Pulse */}
+        <div className="absolute inset-0 m-auto h-12 w-12 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-full animate-pulse-soft shadow-lg shadow-indigo-500/30"></div>
+      </div>
+
+      <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 via-violet-700 to-emerald-600 tracking-tight mb-2">
+        GreenHealth
+      </h2>
+      <p className="text-xs font-bold text-slate-400 tracking-widest uppercase mb-1">Ultra Legend Pro</p>
+      <div className="h-1 w-24 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 w-1/2 animate-[shimmer_1.5s_infinite_linear] rounded-full"></div>
+      </div>
+    </div>
   </div>
 );
 

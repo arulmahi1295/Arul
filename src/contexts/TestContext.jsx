@@ -9,6 +9,7 @@ export const useTests = () => useContext(TestContext);
 
 export const TestProvider = ({ children }) => {
     const [tests, setTests] = useState([]);
+    const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -28,6 +29,14 @@ export const TestProvider = ({ children }) => {
                         ...doc.data()
                     }));
                     setTests(loadedTests);
+
+                    // Load Packages
+                    const pkgSnapshot = await getDocs(collection(db, 'packages'));
+                    const loadedPackages = pkgSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    setPackages(loadedPackages);
                 } else {
                     // 2. Migration Required: Populate Firestore from static CATALOG
                     console.log("Migrating tests to Firestore...");
@@ -101,6 +110,14 @@ export const TestProvider = ({ children }) => {
                 ...doc.data()
             }));
             setTests(loadedTests);
+
+            // Reload Packages
+            const pkgSnapshot = await getDocs(collection(db, 'packages'));
+            const loadedPackages = pkgSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setPackages(loadedPackages);
         } catch (err) {
             console.error("Error refreshing tests:", err);
         } finally {
@@ -109,7 +126,7 @@ export const TestProvider = ({ children }) => {
     };
 
     return (
-        <TestContext.Provider value={{ tests, loading, error, refreshTests }}>
+        <TestContext.Provider value={{ tests, packages, loading, error, refreshTests }}>
             {children}
         </TestContext.Provider>
     );

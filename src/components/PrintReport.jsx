@@ -16,6 +16,7 @@ const PrintReport = () => {
     const [headerImage, setHeaderImage] = useState(null);
     const [footerImage, setFooterImage] = useState(null);
     const [watermarkImage, setWatermarkImage] = useState(null);
+    const [labDetails, setLabDetails] = useState(null);
     const reportRef = useRef(null);
 
     useEffect(() => {
@@ -27,6 +28,7 @@ const PrintReport = () => {
                 setHeaderImage(settings.headerImage || null);
                 setFooterImage(settings.footerImage || null);
                 setWatermarkImage(settings.watermarkImage || null);
+                setLabDetails(settings.labDetails || null);
             }
         };
         loadSettings();
@@ -168,6 +170,7 @@ const PrintReport = () => {
                                 hour: '2-digit',
                                 minute: '2-digit'
                             })}</>}
+                            labDetails={labDetails}
                         />
                     )}
                 </div>
@@ -412,9 +415,10 @@ const PrintReport = () => {
 
                         {/* Contact & Footer */}
                         <div className="text-center text-[9px] text-slate-400 mb-2">
-                            <p className="font-medium mb-1">GreenHealth Laboratory</p>
-                            <p>📞 +91 98765 43210 | 📧 info@greenhealth.lab | 🌐 www.greenhealth.lab</p>
-                            <p className="text-[8px] mt-2">This is a computer-generated report. Digital signature ensures authenticity.</p>
+                            <p className="font-medium mb-1">{labDetails?.name || 'GreenHealth Laboratory'}</p>
+                            <p>{labDetails?.address || '123 Health Avenue'}</p>
+                            <p>📞 {labDetails?.phone || '+91 98765 43210'} | 📧 {labDetails?.email || 'info@greenhealth.lab'}</p>
+                            <p className="text-[8px] mt-2">{labDetails?.footerText || 'This is a computer-generated report. Digital signature ensures authenticity.'}</p>
                         </div>
 
                         {footerImage && (

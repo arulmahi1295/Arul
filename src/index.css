@@ -6,8 +6,26 @@
   body {
     @apply bg-slate-50 text-slate-800 antialiased;
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background: theme('backgroundImage.mesh-pattern'), #f8fafc;
+    /* Soft mesh gradient background - Pro Feel */
+    background-color: #f8fafc;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.05) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%);
     background-attachment: fixed;
+  }
+
+  /* Custom Scrollbar - Slim & Sleek */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
   }
 }
 
@@ -17,19 +35,49 @@
 }
 
 @layer components {
+  /* Glowing Primary Button */
   .btn-primary {
-    @apply bg-accent-gradient text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all duration-300 border-0 rounded-xl font-medium tracking-wide;
+    @apply bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/20 
+           hover:shadow-indigo-500/40 hover:-translate-y-0.5 hover:scale-[1.02] 
+           active:scale-95 active:shadow-indigo-500/10
+           transition-all duration-300 border-0 rounded-xl font-bold tracking-wide flex items-center justify-center;
   }
 
-  .pro-card {
-    @apply bg-white rounded-3xl border border-slate-100 shadow-pro-md hover:shadow-pro-lg transition-all duration-300;
+  /* Glassmorphism Card Utilities */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-md border border-white/60 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 rounded-2xl;
   }
-
-  .input-field {
-    @apply border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 bg-white rounded-xl;
-  }
-
+  
   .glass-panel {
-    @apply bg-white/80 backdrop-blur-xl border border-white/40 shadow-pro-lg;
+    @apply bg-white/80 backdrop-blur-xl border border-white/50 shadow-sm rounded-2xl;
   }
+
+  /* Pro Input Field */
+  .input-field {
+    @apply border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-300 bg-white/90 backdrop-blur-sm rounded-xl font-medium text-slate-700 placeholder:text-slate-400;
+  }
+
+  /* Pro Card (Opaque fallback or stronger background) */
+  .pro-card {
+    @apply bg-white rounded-2xl border border-slate-100 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 relative overflow-hidden;
+  }
+}
+
+/* Animations */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(0.98); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
 }

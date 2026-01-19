@@ -385,6 +385,46 @@ export const storage = {
         }
     },
 
+    saveTestPricing: async (testId, pricingData) => {
+        try {
+            await setDoc(doc(db, COLLECTIONS.TEST_PRICING, testId), pricingData, { merge: true });
+        } catch (e) {
+            console.error("Error saving test pricing:", e);
+        }
+    },
+
+    // --- PACKAGES ---
+    getPackages: async () => {
+        try {
+            const snapshot = await getDocs(collection(db, 'packages'));
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            console.error("Error getting packages:", error);
+            return [];
+        }
+    },
+
+    savePackage: async (pkgData) => {
+        try {
+            // pkgData should have id (PKG-xxx), name, price, tests (array), description
+            await setDoc(doc(db, 'packages', pkgData.id), pkgData, { merge: true });
+            return pkgData.id;
+        } catch (error) {
+            console.error("Error saving package:", error);
+            throw error;
+        }
+    },
+
+    deletePackage: async (pkgId) => {
+        try {
+            await deleteDoc(doc(db, 'packages', pkgId));
+        } catch (error) {
+            console.error("Error deleting package:", error);
+            throw error;
+        }
+    },
+
+    // --- PENDING ORDERS ---
     // Activity Logs Methods
     saveActivityLog: async (logEntry) => {
         try {

@@ -1,19 +1,79 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag, ClipboardList, Filter, Search, Calendar, User as UserIcon, Beaker } from 'lucide-react';
+import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag, ClipboardList, Filter, Search, Calendar, User as UserIcon, Beaker, Server, Wifi, Cpu, Package } from 'lucide-react';
 import { storage } from '../data/storage';
 import { TEST_CATALOG } from '../data/testCatalog';
 import TestPricingManager from '../components/TestPricingManager';
 import TestMaster from '../components/TestMaster';
-import ReferralPriceManager from '../components/ReferralPriceManager'; // New Import
+import ReferralPriceManager from '../components/ReferralPriceManager';
+import PackageMaster from '../components/PackageMaster';
 import { logAdmin } from '../utils/activityLogger';
 
 // --- Sub-Components ---
 
+const SystemVitalityWidget = () => (
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-xl shadow-slate-400/20 relative overflow-hidden h-full">
+        {/* Decorative Grid */}
+        <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+
+        <div className="relative z-10 flex justify-between items-start mb-6">
+            <div>
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-emerald-400 animate-pulse" />
+                    System Vitality
+                </h3>
+                <p className="text-slate-400 text-xs">Real-time performance metrics</p>
+            </div>
+            <div className="flex gap-2 items-center">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+                <span className="text-emerald-400 text-xs font-bold">OPERATIONAL</span>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* CPU Load */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-300 text-xs font-medium">Server Load</span>
+                    <Server className="h-4 w-4 text-indigo-300" />
+                </div>
+                <div className="text-2xl font-bold">12%</div>
+                <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div className="bg-indigo-500 h-full w-[12%] rounded-full"></div>
+                </div>
+            </div>
+
+            {/* DB Health */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-300 text-xs font-medium">Database</span>
+                    <Database className="h-4 w-4 text-emerald-300" />
+                </div>
+                <div className="text-2xl font-bold">98ms</div>
+                <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div className="bg-emerald-500 h-full w-[80%] rounded-full"></div>
+                </div>
+            </div>
+
+            {/* API Latency */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-300 text-xs font-medium">API Latency</span>
+                    <Wifi className="h-4 w-4 text-amber-300" />
+                </div>
+                <div className="text-2xl font-bold">24ms</div>
+                <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div className="bg-amber-500 h-full w-[60%] rounded-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
 const DashboardView = ({ stats, logs }) => (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-        {/* Quick Stats */}
+        {/* Quick Stats Row 1 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center">
+            <div className="glass-card p-6 flex items-center">
                 <div className="p-4 bg-blue-50 text-blue-600 rounded-xl mr-4">
                     <Users className="h-6 w-6" />
                 </div>
@@ -22,7 +82,7 @@ const DashboardView = ({ stats, logs }) => (
                     <h3 className="text-2xl font-bold text-slate-800">{stats.patients}</h3>
                 </div>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center">
+            <div className="glass-card p-6 flex items-center">
                 <div className="p-4 bg-emerald-50 text-emerald-600 rounded-xl mr-4">
                     <FileText className="h-6 w-6" />
                 </div>
@@ -31,7 +91,7 @@ const DashboardView = ({ stats, logs }) => (
                     <h3 className="text-2xl font-bold text-slate-800">{stats.orders}</h3>
                 </div>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center">
+            <div className="glass-card p-6 flex items-center">
                 <div className="p-4 bg-indigo-50 text-indigo-600 rounded-xl mr-4">
                     <Users className="h-6 w-6" />
                 </div>
@@ -40,7 +100,7 @@ const DashboardView = ({ stats, logs }) => (
                     <h3 className="text-2xl font-bold text-slate-800">{stats.userCount}</h3>
                 </div>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center">
+            <div className="glass-card p-6 flex items-center">
                 <div className="p-4 bg-amber-50 text-amber-600 rounded-xl mr-4">
                     <Database className="h-6 w-6" />
                 </div>
@@ -51,54 +111,61 @@ const DashboardView = ({ stats, logs }) => (
             </div>
         </div>
 
-        {/* Profitability Analysis */}
-        <div>
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
-                <Activity className="h-6 w-6 mr-2 text-indigo-600" />
-                Profitability Report (MRP vs L2L)
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Total MRP Value</p>
-                    <h3 className="text-2xl font-bold text-slate-800">₹{stats.mrp.toLocaleString()}</h3>
-                    <p className="text-xs text-slate-400 mt-1">Gross potential revenue</p>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Total Revenue (Actual)</p>
-                    <h3 className="text-2xl font-bold text-emerald-600">₹{stats.revenue.toLocaleString()}</h3>
-                    <p className="text-xs text-slate-400 mt-1">After discounts</p>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">L2L / Outsource Cost</p>
-                    <h3 className="text-2xl font-bold text-rose-500">₹{stats.cost.toLocaleString()}</h3>
-                    <p className="text-xs text-slate-400 mt-1">Estimated Cost</p>
-                </div>
-                <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl shadow-sm text-white">
-                    <p className="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-2">Net Profit</p>
-                    <h3 className="text-3xl font-bold white">₹{stats.profit.toLocaleString()}</h3>
-                    <p className="text-xs text-indigo-200 mt-1">
-                        Margin: {stats.revenue ? Math.round((stats.profit / stats.revenue) * 100) : 0}%
-                    </p>
+        {/* Vitality & Profitability Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* System Vitality Widget (Takes up 1 column on large screens) */}
+            <div className="lg:col-span-1">
+                <SystemVitalityWidget />
+            </div>
+
+            {/* Profitability Analysis (Takes up 2 columns) */}
+            <div className="lg:col-span-2 space-y-4">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center">
+                    <Activity className="h-6 w-6 mr-2 text-indigo-600" />
+                    Profitability Report (MRP vs L2L)
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="glass-card p-5">
+                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Total Revenue (Actual)</p>
+                        <h3 className="text-2xl font-bold text-emerald-600">₹{stats.revenue.toLocaleString()}</h3>
+                        <p className="text-xs text-slate-400 mt-1">After discounts</p>
+                    </div>
+                    <div className="glass-card p-5">
+                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">L2L / Cost</p>
+                        <h3 className="text-2xl font-bold text-rose-500">₹{stats.cost.toLocaleString()}</h3>
+                        <p className="text-xs text-slate-400 mt-1">Estimated Cost</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-5 rounded-2xl shadow-lg shadow-indigo-200 text-white relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10"><Activity size={48} /></div>
+                        <p className="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-2">Net Profit</p>
+                        <h3 className="text-3xl font-bold white">₹{stats.profit.toLocaleString()}</h3>
+                        <p className="text-xs text-indigo-200 mt-1">
+                            Margin: {stats.revenue ? Math.round((stats.profit / stats.revenue) * 100) : 0}%
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
 
         {/* Logs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="glass-card overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <h2 className="font-bold text-slate-800 flex items-center">
                     <Activity className="h-5 w-5 mr-2 text-slate-500" />
                     System Activity Logs
                 </h2>
-                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-medium">Live</span>
+                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Live Feed
+                </span>
             </div>
             <div className="p-0">
                 {logs.length === 0 ? (
                     <div className="p-12 text-center text-slate-400">No activity recorded yet.</div>
                 ) : (
-                    <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+                    <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto custom-scrollbar">
                         {logs.map((log, idx) => (
-                            <div key={idx} className="p-4 hover:bg-slate-50 flex items-start">
+                            <div key={idx} className="p-4 hover:bg-slate-50/80 transition-colors flex items-start">
                                 <div className={`mt-1 h-2 w-2 rounded-full mr-4 flex-shrink-0 ${log.type === 'REFUND' ? 'bg-rose-500' :
                                     log.type === 'LOGIN' ? 'bg-indigo-500' : 'bg-emerald-500'
                                     }`} />
@@ -496,58 +563,116 @@ const LabConfiguration = ({
     onUploadLabTech, onDeleteLabTech,
     onUploadHeader, onDeleteHeader,
     onUploadFooter, onDeleteFooter,
-    onUploadWatermark, onDeleteWatermark
-}) => (
-    <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-5xl">
-        <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Lab Configuration</h2>
-            <p className="text-slate-500">Manage report layout, headers, footers, and signatures.</p>
-        </div>
+    onUploadWatermark, onDeleteWatermark,
+    details = {}, onSaveDetails
+}) => {
+    const [formData, setFormData] = useState({
+        name: details?.name || 'GreenHealth Lab',
+        address: details?.address || '123 Health Avenue, Medical District',
+        phone: details?.phone || '+1 (555) 123-4567',
+        email: details?.email || 'contact@greenhealth.com',
+        gstin: details?.gstin || '22AAAAA0000A1Z5',
+        footerText: details?.footerText || 'This is a computer generated report and does not require a physical signature.'
+    });
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <ImageSetting
-                title="Report Header"
-                image={headerImage}
-                onUpload={onUploadHeader}
-                onDelete={onDeleteHeader}
-                icon={LayoutDashboard}
-                colorClass="text-blue-600"
-            />
-            <ImageSetting
-                title="Report Footer"
-                image={footerImage}
-                onUpload={onUploadFooter}
-                onDelete={onDeleteFooter}
-                icon={LayoutDashboard}
-                colorClass="text-blue-600"
-            />
-            <ImageSetting
-                title="Watermark Logo"
-                image={watermarkImage}
-                onUpload={onUploadWatermark}
-                onDelete={onDeleteWatermark}
-                icon={Shield}
-                colorClass="text-purple-600"
-            />
-            <ImageSetting
-                title="Pathologist Sign"
-                image={pathologistSignature}
-                onUpload={onUploadPathologist}
-                onDelete={onDeletePathologist}
-                icon={PenTool}
-                colorClass="text-indigo-600"
-            />
-            <ImageSetting
-                title="Lab Tech Sign"
-                image={labTechSignature}
-                onUpload={onUploadLabTech}
-                onDelete={onDeleteLabTech}
-                icon={Users}
-                colorClass="text-emerald-600"
-            />
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    return (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500 max-w-5xl">
+            <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-800">Lab Configuration</h2>
+                <p className="text-slate-500">Manage lab details, report layout, and branding.</p>
+            </div>
+
+            {/* Lab Details Form */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                    <Database className="h-5 w-5 mr-3 text-indigo-600" />
+                    Lab Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Lab Name</label>
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none font-bold" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number</label>
+                        <input type="text" name="phone" value={formData.phone} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Email</label>
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Address</label>
+                        <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">GSTIN / Tax ID</label>
+                        <input type="text" name="gstin" value={formData.gstin} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Report Footer Text</label>
+                        <input type="text" name="footerText" value={formData.footerText} onChange={handleChange} className="w-full p-2.5 rounded-lg border border-slate-200 focus:border-indigo-500 outline-none" />
+                    </div>
+                </div>
+                <div className="mt-4 flex justify-end">
+                    <button
+                        onClick={() => onSaveDetails(formData)}
+                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                    >
+                        Save Details
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <ImageSetting
+                    title="Report Header"
+                    image={headerImage}
+                    onUpload={onUploadHeader}
+                    onDelete={onDeleteHeader}
+                    icon={LayoutDashboard}
+                    colorClass="text-blue-600"
+                />
+                <ImageSetting
+                    title="Report Footer"
+                    image={footerImage}
+                    onUpload={onUploadFooter}
+                    onDelete={onDeleteFooter}
+                    icon={LayoutDashboard}
+                    colorClass="text-blue-600"
+                />
+                <ImageSetting
+                    title="Watermark Logo"
+                    image={watermarkImage}
+                    onUpload={onUploadWatermark}
+                    onDelete={onDeleteWatermark}
+                    icon={Shield}
+                    colorClass="text-purple-600"
+                />
+                <ImageSetting
+                    title="Pathologist Sign"
+                    image={pathologistSignature}
+                    onUpload={onUploadPathologist}
+                    onDelete={onDeletePathologist}
+                    icon={PenTool}
+                    colorClass="text-indigo-600"
+                />
+                <ImageSetting
+                    title="Lab Tech Sign"
+                    image={labTechSignature}
+                    onUpload={onUploadLabTech}
+                    onDelete={onDeleteLabTech}
+                    icon={Users}
+                    colorClass="text-emerald-600"
+                />
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const DataManagement = ({ onExport, onImport, onFactoryReset }) => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -912,7 +1037,8 @@ const Admin = () => {
         labTechSignature: null,
         headerImage: null,
         footerImage: null,
-        watermarkImage: null
+        watermarkImage: null,
+        labDetails: null
     });
 
     useEffect(() => {
@@ -982,7 +1108,8 @@ const Admin = () => {
             labTechSignature: settings?.labTechSignature,
             headerImage: settings?.headerImage,
             footerImage: settings?.footerImage,
-            watermarkImage: settings?.watermarkImage
+            watermarkImage: settings?.watermarkImage,
+            labDetails: settings?.labDetails
         });
     };
 
@@ -1083,6 +1210,14 @@ const Admin = () => {
     const handleDeleteSignature = async () => {
         await storage.saveSettings({ signature: null });
         loadAllData();
+    };
+
+    const handleLabDetailsSave = async (details) => {
+        // Only save specifically the lab details part of settings
+        // storage.saveSettings merges updates, so this is safe
+        await storage.saveSettings({ labDetails: details });
+        loadAllData();
+        alert('Lab details updated successfully!');
     };
 
     const handleLabTechUpload = (e) => {
@@ -1245,7 +1380,8 @@ const Admin = () => {
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'tests', label: 'Test Master', icon: Beaker }, // New Tab
+        { id: 'tests', label: 'Test Master', icon: Beaker },
+        { id: 'packages', label: 'Health Packages', icon: Package },
         { id: 'pricing', label: 'Test Pricing (L2L)', icon: Tag },
         { id: 'employees', label: 'Employee Management', icon: Users },
         { id: 'referrals', label: 'Referral Management', icon: UserPlus },
@@ -1329,6 +1465,7 @@ const Admin = () => {
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {activeTab === 'dashboard' && <DashboardView stats={data.stats} logs={data.logs} />}
                             {activeTab === 'tests' && <TestMaster />}
+                            {activeTab === 'packages' && <PackageMaster />}
                             {activeTab === 'pricing' && <TestPricingManager />}
                             {activeTab === 'employees' && <EmployeeManagement users={data.users} onSave={handleUserSave} onDelete={handleUserDelete} onEdit={null} />}
                             {activeTab === 'referrals' && <ReferralManagement referrals={data.referrals} onAdd={handleReferralSave} onDelete={handleReferralDelete} />}
@@ -1349,6 +1486,8 @@ const Admin = () => {
                                 onDeleteFooter={() => handleSettingDelete('footerImage')}
                                 onUploadWatermark={handleWatermarkUpload}
                                 onDeleteWatermark={() => handleSettingDelete('watermarkImage')}
+                                details={data.labDetails}
+                                onSaveDetails={handleLabDetailsSave}
                             />}
                             {activeTab === 'logs' && <ActivityLogsView />}
                             {activeTab === 'data' && <DataManagement onExport={handleExport} onImport={handleImport} onFactoryReset={handleFactoryReset} />}
