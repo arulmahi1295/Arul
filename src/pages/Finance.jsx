@@ -330,8 +330,8 @@ const Finance = () => {
         }
         const brandingRows = [
             ['GreenHealth Lab'],
-            ['123 Health Avenue, Medical District'],
-            ['Phone: +1 (555) 123-4567 | GSTIN: 22AAAAA0000A1Z5'],
+            ['37/A 15th Cross 16th Main Road BTM 2nd Stage Bengaluru 560076'],
+            ['Phone: +91 83100 22139 | GSTIN: 22AAAAA0000A1Z5'],
             ['Report Generated: ' + new Date().toLocaleString()],
             []
         ];

@@ -5,7 +5,7 @@ const Letterhead = ({ title, subtitle, meta, labDetails }) => {
     // Default values if no configuration exists
     const details = {
         name: labDetails?.name || 'GreenHealth Lab',
-        address: labDetails?.address || '123 Health Avenue, Medical District',
+        address: labDetails?.address || '37/A 15th Cross 16th Main Road BTM 2nd Stage Bengaluru 560076',
         phone: labDetails?.phone || '+91 83100 22139',
         gstin: labDetails?.gstin || '22AAAAA0000A1Z5',
         ...labDetails
@@ -14,14 +14,15 @@ const Letterhead = ({ title, subtitle, meta, labDetails }) => {
     return (
         <header className="border-b border-slate-200 pb-6 mb-8 flex justify-between items-start">
             <div>
-                <div className="flex items-center gap-2 mb-2">
-                    <Leaf className="h-8 w-8 text-emerald-600" />
-                    <h1 className="text-3xl font-bold text-emerald-700">{details.name}</h1>
-                </div>
-                <div className="text-sm text-slate-500 space-y-1">
-                    <p className="flex items-center"><MapPin className="h-4 w-4 mr-2" /> {details.address}</p>
-                    <p className="flex items-center"><Phone className="h-4 w-4 mr-2" /> {details.phone}</p>
-
+                <div className="text-right">
+                    <h1 className="text-2xl font-bold text-slate-800 uppercase tracking-wider">GreenHealth <span className="text-emerald-600">Lab</span></h1>
+                    <p className="text-xs text-slate-500 font-medium mt-1">
+                        37/A 15th Cross 16th Main Road<br />
+                        BTM 2nd Stage Bengaluru 560076
+                    </p>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        Phone: +91 83100 22139 | Email: contact@greenhealthlab.com
+                    </p>
                 </div>
             </div>
             <div className="text-right">

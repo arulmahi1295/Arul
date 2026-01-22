@@ -416,8 +416,8 @@ const PrintReport = () => {
                         {/* Contact & Footer */}
                         <div className="text-center text-[9px] text-slate-400 mb-2">
                             <p className="font-medium mb-1">{labDetails?.name || 'GreenHealth Laboratory'}</p>
-                            <p>{labDetails?.address || '123 Health Avenue'}</p>
-                            <p>📞 {labDetails?.phone || '+91 98765 43210'} | 📧 {labDetails?.email || 'info@greenhealth.lab'}</p>
+                            <p>{labDetails?.address || '37/A 15th Cross 16th Main Road BTM 2nd Stage Bengaluru 560076'}</p>
+                            <p>📞 {labDetails?.phone || '+91 83100 22139'} | 📧 {labDetails?.email || 'contact@greenhealthlab.com'}</p>
                             <p className="text-[8px] mt-2">{labDetails?.footerText || 'This is a computer-generated report. Digital signature ensures authenticity.'}</p>
                         </div>
 

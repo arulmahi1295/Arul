@@ -86,7 +86,7 @@ const PrintInvoice = () => {
                         <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">GreenHealth<span className="text-emerald-600">Lab</span></h1>
                     </div>
                     <div className="text-sm text-slate-500 space-y-1.5 leading-relaxed pl-1">
-                        <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-emerald-500" /> 123 Health Avenue, Medical District</p>
+                        <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-emerald-500" /> 37/A 15th Cross 16th Main Road BTM 2nd Stage Bengaluru 560076</p>
                         <p className="flex items-center gap-2"><Phone className="h-4 w-4 text-emerald-500" /> +91 83100 22139</p>
                         <p className="flex items-center gap-2"><span className="font-semibold text-emerald-600">www.greenhealthlab.com</span></p>
                     </div>
