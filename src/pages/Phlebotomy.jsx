@@ -90,26 +90,37 @@ const Phlebotomy = () => {
 
     // Fetch L2L Prices
     useEffect(() => {
-        const fetchPrices = async () => {
+        const priceMap = {};
+        if (tests && tests.length > 0) {
+            tests.forEach(t => {
+                if (t.l2lPrice) priceMap[t.code] = t.l2lPrice;
+            });
+        }
+
+        // Merge with legacy collection if needed, but context is source of truth now
+        const fetchLegacyPrices = async () => {
             try {
                 const querySnapshot = await getDocs(collection(db, 'test_pricing'));
-                const priceMap = {};
                 querySnapshot.forEach((doc) => {
-                    priceMap[doc.id] = doc.data().l2lPrice;
+                    // Only overwrite if not in main catalog (legacy support)
+                    if (priceMap[doc.id] === undefined) {
+                        priceMap[doc.id] = doc.data().l2lPrice;
+                    }
                 });
                 setL2lPrices(priceMap);
             } catch (error) {
-                console.error("Error fetching L2L prices:", error);
+                console.error("Error fetching legacy L2L prices:", error);
+                setL2lPrices(priceMap); // Set what we have
             }
         };
-        fetchPrices();
+        fetchLegacyPrices();
 
         const fetchLabs = async () => {
             const labs = await storage.getOutsourceLabs();
             setOutsourcePartners(labs);
         };
         fetchLabs();
-    }, []);
+    }, [tests]);
 
     // Initial Load - Check for Prefill OR Edit
     useEffect(() => {
@@ -306,7 +317,7 @@ const Phlebotomy = () => {
                     ...test,
                     price: finalPrice, // Save the actual charged price
                     originalPrice: test.price, // Keep track of base MRP
-                    l2lPrice: l2lPrices[test.code] || 0
+                    l2lPrice: l2lPrices[test.code] !== undefined ? l2lPrices[test.code] : (test.l2lPrice || 0)
                 };
             }
         });
@@ -358,7 +369,7 @@ const Phlebotomy = () => {
                 const constituentTests = (test.tests || []).map(tId => {
                     const t = tests.find(x => x.id === tId);
                     if (!t) return null;
-                    return { ...t, l2lPrice: l2lPrices[t.code] || 0 };
+                    return { ...t, l2lPrice: l2lPrices[t.code] !== undefined ? l2lPrices[t.code] : (t.l2lPrice || 0) };
                 }).filter(Boolean);
                 return {
                     ...test,
@@ -372,7 +383,7 @@ const Phlebotomy = () => {
                     ...test,
                     price: finalPrice,
                     originalPrice: test.price,
-                    l2lPrice: l2lPrices[test.code] || 0
+                    l2lPrice: l2lPrices[test.code] !== undefined ? l2lPrices[test.code] : (test.l2lPrice || 0)
                 };
             }
         });

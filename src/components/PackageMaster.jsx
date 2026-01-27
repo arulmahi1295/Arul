@@ -30,7 +30,13 @@ const PackageMaster = () => {
     }, [formData.selectedTestIds, tests]);
 
     const totalMRP = selectedTestsList.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0);
+    const totalL2L = selectedTestsList.reduce((sum, t) => sum + (parseFloat(t.l2lPrice) || 0), 0);
     const packagePrice = parseFloat(formData.price) || 0;
+
+    // Profit Calculations
+    const profit = Math.max(0, packagePrice - totalL2L);
+    const margin = packagePrice > 0 ? Math.round((profit / packagePrice) * 100) : 0;
+
     const discountAmount = Math.max(0, totalMRP - packagePrice);
     const discountPercent = totalMRP > 0 ? Math.round((discountAmount / totalMRP) * 100) : 0;
 
@@ -167,7 +173,12 @@ const PackageMaster = () => {
                 {filteredPackages.map(pkg => {
                     const pkgTests = pkg.tests.map(id => tests.find(t => t.id === id)).filter(Boolean);
                     const pkgMRP = pkgTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0);
-                    const savings = Math.max(0, pkgMRP - pkg.price);
+                    const pkgL2L = pkgTests.reduce((sum, t) => sum + (parseFloat(t.l2lPrice) || 0), 0);
+                    const pkgPrice = parseFloat(pkg.price) || 0;
+
+                    const savings = Math.max(0, pkgMRP - pkgPrice);
+                    const profit = pkgPrice - pkgL2L;
+                    const margin = pkgPrice > 0 ? Math.round((profit / pkgPrice) * 100) : 0;
 
                     return (
                         <div key={pkg.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative group hover:shadow-md transition-shadow">
@@ -188,16 +199,28 @@ const PackageMaster = () => {
                             <h3 className="text-lg font-bold text-slate-800 mb-1">{pkg.name}</h3>
                             <p className="text-xs text-slate-500 mb-4 line-clamp-2">{pkg.description || 'No description provided.'}</p>
 
-                            <div className="flex items-baseline gap-2 mb-4">
-                                <span className="text-2xl font-bold text-slate-800">₹{pkg.price}</span>
-                                {pkgMRP > pkg.price && (
-                                    <>
-                                        <span className="text-sm text-slate-400 line-through">₹{pkgMRP}</span>
-                                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                            Save ₹{savings}
-                                        </span>
-                                    </>
-                                )}
+                            <div className="flex flex-col gap-1 mb-4">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-slate-800">₹{pkg.price}</span>
+                                    {pkgMRP > pkg.price && (
+                                        <>
+                                            <span className="text-sm text-slate-400 line-through">₹{pkgMRP}</span>
+                                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                                Save ₹{savings}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Profitability Pill */}
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-xs px-2 py-0.5 rounded-md border ${profit > 0 ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                                        Profit: ₹{profit} ({margin}%)
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                        (Cost: ₹{pkgL2L})
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="border-t border-slate-100 pt-3">
@@ -336,6 +359,24 @@ const PackageMaster = () => {
                                     <p className="text-xs text-indigo-500 font-bold uppercase">Discount</p>
                                     <p className="text-lg font-bold text-indigo-900">{discountPercent}% OFF</p>
                                     <p className="text-xs text-indigo-400">Save ₹{discountAmount}</p>
+                                </div>
+                            </div>
+
+                            {/* Profitability Analysis in Form */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <p className="text-xs text-slate-500 font-bold uppercase mb-1">Total Cost (L2L)</p>
+                                    <p className="text-lg font-bold text-slate-700">₹{totalL2L}</p>
+                                    <p className="text-[10px] text-slate-400">Sum of B2B prices</p>
+                                </div>
+                                <div className={`p-3 rounded-xl border ${profit > 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                                    <p className={`text-xs font-bold uppercase mb-1 ${profit > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Net Profit</p>
+                                    <div className="flex items-baseline justify-between">
+                                        <p className={`text-lg font-bold ${profit > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>₹{profit}</p>
+                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${profit > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                            {margin}%
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

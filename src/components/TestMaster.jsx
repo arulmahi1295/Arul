@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useTests } from '../contexts/TestContext';
 import { db } from '../lib/firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { Search, Plus, Trash2, Edit2, Save, X, AlertCircle, Beaker, Tag } from 'lucide-react';
+import { doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { Search, Plus, Trash2, Edit2, Save, X, AlertCircle, Beaker, Tag, Upload, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const TestMaster = () => {
     const { tests, loading, refreshTests } = useTests();
@@ -10,6 +11,7 @@ const TestMaster = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTest, setEditingTest] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [importing, setImporting] = useState(false);
     const [message, setMessage] = useState(null);
 
     // Form State
@@ -103,6 +105,109 @@ const TestMaster = () => {
         }
     };
 
+    // Bulk Import Logic
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setImporting(true);
+        setMessage(null);
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws);
+
+                if (data.length === 0) throw new Error("File appears empty");
+
+                const batch = writeBatch(db);
+                let updateCount = 0;
+                let newCount = 0; // Tracking for potential new tests (feature expansion) - currently strictly updates
+
+                data.forEach(row => {
+                    // Normalize keys
+                    const rowNormalized = {};
+                    Object.keys(row).forEach(k => rowNormalized[k.toLowerCase().trim()] = row[k]);
+
+                    const code = rowNormalized['test code'] || rowNormalized['code'] || rowNormalized['id'];
+                    const name = rowNormalized['test name'] || rowNormalized['name'] || rowNormalized['test'];
+                    const l2lPrice = rowNormalized['l2l price'] || rowNormalized['cost'] || rowNormalized['b2b price'] || rowNormalized['b2b'] || rowNormalized['l2l']; // Added l2l check
+                    const mrp = rowNormalized['mrp'] || rowNormalized['price'];
+
+                    // Skip if no identifying info
+                    if (!code && !name) return;
+
+                    // Strategy 1: Match by Code
+                    let existingTest = null;
+                    if (code) {
+                        existingTest = tests.find(t => t.code?.toString().toUpperCase() === code.toString().toUpperCase());
+                    }
+
+                    // Strategy 2: Match by Name (Fallback)
+                    if (!existingTest && name) {
+                        existingTest = tests.find(t => t.name?.toLowerCase().trim() === name.toString().toLowerCase().trim());
+                    }
+
+                    if (existingTest) {
+                        // Sanitize ID: Firestore IDs cannot contain slashes. If existingTest.id has slashes,
+                        // it must be sanitized to match the actual document ID.
+                        const safeId = existingTest.id.toString().replace(/\//g, '_');
+                        const testRef = doc(db, 'tests', safeId);
+                        const updates = {};
+
+                        // Parse numbers carefully
+                        if (l2lPrice !== undefined) {
+                            const parsedL2L = parseFloat(l2lPrice);
+                            if (!isNaN(parsedL2L)) updates.l2lPrice = parsedL2L;
+                        }
+
+                        if (mrp !== undefined) {
+                            const parsedPrice = parseFloat(mrp);
+                            if (!isNaN(parsedPrice)) updates.price = parsedPrice;
+                        }
+
+                        if (Object.keys(updates).length > 0) {
+                            batch.update(testRef, updates);
+                            updateCount++;
+                        }
+                    }
+                });
+
+                if (updateCount > 0) {
+                    await batch.commit();
+                    setMessage({ type: 'success', text: `Successfully updated ${updateCount} tests.` });
+                    refreshTests();
+                } else {
+                    setMessage({ type: 'info', text: 'No matching tests found to update.' });
+                }
+
+            } catch (error) {
+                console.error("Import Error", error);
+                setMessage({ type: 'error', text: `Import Failed: ${error.message}` });
+            } finally {
+                setImporting(false);
+                e.target.value = null; // Reset input
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const handleDownloadTemplate = () => {
+        const template = [
+            ['Test Code', 'Test Name', 'Category', 'Price', 'L2L Price'],
+            ...tests.map(t => [t.code, t.name, t.category, t.price, t.l2lPrice || 0])
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(template);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Test_Master_Template");
+        XLSX.writeFile(wb, "Test_Master_Template.xlsx");
+    };
+
+
     // Filtering
     const filteredTests = useMemo(() => {
         return tests.filter(t =>
@@ -121,22 +226,35 @@ const TestMaster = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-xl font-bold font-display text-slate-800">Test Master</h2>
                     <p className="text-slate-500 text-sm">Manage lab tests, prices, and categories</p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 flex items-center shadow-lg shadow-indigo-200"
-                >
-                    <Plus className="h-4 w-4 mr-2" /> Add New Test
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleDownloadTemplate}
+                        className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 flex items-center shadow-sm"
+                        title="Download Template"
+                    >
+                        <Download className="h-4 w-4 mr-2" /> Template
+                    </button>
+                    <label className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 flex items-center shadow-lg shadow-emerald-200 cursor-pointer transition-colors">
+                        {importing ? 'Importing...' : <><Upload className="h-4 w-4 mr-2" /> Import Excel</>}
+                        <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="hidden" disabled={importing} />
+                    </label>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 flex items-center shadow-lg shadow-indigo-200"
+                    >
+                        <Plus className="h-4 w-4 mr-2" /> Add New Test
+                    </button>
+                </div>
             </div>
 
             {/* Message Alert */}
             {message && (
-                <div className={`p-4 rounded-lg flex items-center space-x-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`p-4 rounded-lg flex items-center space-x-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : message.type === 'info' ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
                     <AlertCircle size={20} />
                     <span>{message.text}</span>
                 </div>
