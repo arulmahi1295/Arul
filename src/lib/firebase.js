@@ -1,6 +1,7 @@
 // Real Firebase Implementation
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import {
     getFirestore,
     collection,
@@ -34,6 +35,10 @@ if (typeof window !== 'undefined') {
 }
 const db = getFirestore(app);
 
+// Auth Initialization
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
 export {
     db,
     collection,
@@ -45,5 +50,7 @@ export {
     Timestamp,
     doc,
     updateDoc,
-    deleteDoc
+    deleteDoc,
+    auth,
+    googleProvider
 };
