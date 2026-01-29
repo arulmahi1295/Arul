@@ -459,7 +459,7 @@ const Phlebotomy = () => {
     }
 
     return (
-        <div className="h-[calc(100vh-2rem)] flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-2rem)]">
             {/* Left Panel: Test Selection */}
             <div className="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-4 border-b border-slate-100 bg-slate-50">
@@ -526,7 +526,7 @@ const Phlebotomy = () => {
             </div>
 
             {/* Right Panel: Order Summary */}
-            <div className="w-96 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="w-full lg:w-96 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden shrink-0">
                 <div className="p-4 bg-slate-50 border-b border-slate-100">
                     <h2 className="text-lg font-bold text-slate-800 mb-4">{editingOrder ? `Editing: ${editingOrder.id}` : 'Requisition'}</h2>
 
