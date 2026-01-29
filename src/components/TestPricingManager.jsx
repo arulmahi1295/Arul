@@ -4,6 +4,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useTests } from '../contexts/TestContext';
 import { Save, Search, RefreshCw, AlertCircle, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { logAdmin } from '../utils/activityLogger';
 
 const TestPricingManager = () => {
     const { tests, loading, refreshTests } = useTests();
@@ -65,7 +66,7 @@ const TestPricingManager = () => {
                         }
 
                         if (test) {
-                            newPrices[test.code] = price;
+                            newPrices[test.id] = price;
                             matchCount++;
                         }
                     }
@@ -90,14 +91,21 @@ const TestPricingManager = () => {
             // Refinement: Only save what changed. 
             // Better Strategy: Save individual entries on blur or a bulk save.
 
-            const promises = Object.entries(editedPrices).map(([code, price]) =>
-                setDoc(doc(db, 'tests', code), { // Update direct test document
+            const promises = Object.entries(editedPrices).map(([id, price]) =>
+                setDoc(doc(db, 'tests', id), { // Update direct test document using ID
                     l2lPrice: parseFloat(price),
                     updatedAt: new Date().toISOString()
                 }, { merge: true })
             );
 
             await Promise.all(promises);
+
+            // Audit Log
+            const count = Object.keys(editedPrices).length;
+            if (count > 0) {
+                await logAdmin.pricingUpdated('L2L Manager', `Bulk updated L2L costs for ${count} tests`);
+            }
+
             setMessage({ type: 'success', text: 'All prices updated successfully!' });
             refreshTests(); // Reload data from Firestore to reflect changes
             setEditedPrices({});
@@ -198,8 +206,8 @@ const TestPricingManager = () => {
                                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">₹</span>
                                             <input
                                                 type="number"
-                                                value={editedPrices[test.code] !== undefined ? editedPrices[test.code] : (test.l2lPrice || '')}
-                                                onChange={(e) => handlePriceChange(test.code, e.target.value)}
+                                                value={editedPrices[test.id] !== undefined ? editedPrices[test.id] : (test.l2lPrice || '')}
+                                                onChange={(e) => handlePriceChange(test.id, e.target.value)}
                                                 placeholder="0"
                                                 className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                                             />

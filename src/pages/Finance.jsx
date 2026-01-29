@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, CreditCard, Calendar, ArrowUpRight, ArrowDownRight, Search, FileText, Download, Building2, Edit2, Wallet, PieChart as PieIcon, ArrowRight } from 'lucide-react';
+import { DollarSign, TrendingUp, CreditCard, Calendar, ArrowUpRight, ArrowDownRight, Search, FileText, Download, Building2, Edit2, Wallet, PieChart as PieIcon, ArrowRight, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { storage } from '../data/storage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import * as XLSX from 'xlsx';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const StatCard = ({ title, value, icon: Icon, color, trend, trendValue, subtitle }) => (
     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(6,81,237,0.1)] hover:shadow-lg transition-all duration-300 group">
@@ -53,13 +55,17 @@ const Finance = () => {
     const [paymentMixData, setPaymentMixData] = useState([]);
     const [registerDate, setRegisterDate] = useState(new Date().toISOString().split('T')[0]);
 
+    // Outsourcing Feature States
+    const [selectedVendor, setSelectedVendor] = useState('All');
+    const [selectedOutsourceTests, setSelectedOutsourceTests] = useState([]); // Array of {orderId, testIndex}
+
     useEffect(() => {
         loadData();
     }, []);
 
     useEffect(() => {
         processReportData();
-    }, [orders, activeTab, profitViewMode, masterTests]);
+    }, [orders, activeTab, profitViewMode, masterTests, selectedVendor]);
 
     const loadData = async () => {
         const allOrders = await storage.getOrders();
@@ -178,6 +184,9 @@ const Finance = () => {
             });
             setOutsourcingStats(partnerStats);
             data = list.sort((a, b) => new Date(b.sentDate) - new Date(a.sentDate));
+            if (selectedVendor !== 'All') {
+                data = data.filter(d => d.labPartner === selectedVendor);
+            }
         } else if (activeTab === 'profit') {
             // PROFIT CALCULATION LOGIC
             let totalRev = 0;
@@ -294,7 +303,89 @@ const Finance = () => {
         setReportData(data);
     };
 
-    // ... (Existing export handlers updated below) ...
+    const handleSettleTest = async (orderId, testIndex) => {
+        if (!confirm('Mark this test as settled with the partner?')) return;
+        try {
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            const docId = order.firebaseId || orderId;
+            const orderRef = doc(db, 'orders', docId);
+
+            const updatedTests = [...order.tests];
+            updatedTests[testIndex].settlementStatus = 'Settled';
+            updatedTests[testIndex].settlementDate = new Date().toISOString();
+
+            await updateDoc(orderRef, { tests: updatedTests });
+            await loadData(); // Refresh
+        } catch (error) {
+            console.error("Error settling test:", error);
+            alert('Failed to update status');
+        }
+    };
+
+    const handleBulkSettle = async () => {
+        if (selectedOutsourceTests.length === 0) return;
+        if (!confirm(`Mark ${selectedOutsourceTests.length} tests as settled?`)) return;
+
+        try {
+            // Group by Order ID to minimize writes
+            const updatesByOrder = {};
+            selectedOutsourceTests.forEach(({ orderId, testIndex }) => {
+                if (!updatesByOrder[orderId]) updatesByOrder[orderId] = [];
+                updatesByOrder[orderId].push(testIndex);
+            });
+
+            const promises = Object.keys(updatesByOrder).map(async (orderId) => {
+                const order = orders.find(o => o.id === orderId);
+                if (!order) return;
+
+                const docId = order.firebaseId || orderId;
+                const orderRef = doc(db, 'orders', docId);
+
+                const updatedTests = [...order.tests];
+                updatesByOrder[orderId].forEach(idx => {
+                    if (updatedTests[idx]) {
+                        updatedTests[idx].settlementStatus = 'Settled';
+                        updatedTests[idx].settlementDate = new Date().toISOString();
+                    }
+                });
+                return updateDoc(orderRef, { tests: updatedTests });
+            });
+
+            await Promise.all(promises);
+            await loadData();
+            setSelectedOutsourceTests([]);
+            alert('Bulk settlement complete!');
+        } catch (error) {
+            console.error("Bulk settle error:", error);
+            alert('Failed to complete bulk settlement.');
+        }
+    };
+
+    const toggleSelectTest = (orderId, testIndex) => {
+        const id = `${orderId}-${testIndex}`;
+        const exists = selectedOutsourceTests.find(x => x.id === id);
+
+        if (exists) {
+            setSelectedOutsourceTests(prev => prev.filter(x => x.id !== id));
+        } else {
+            setSelectedOutsourceTests(prev => [...prev, { id, orderId, testIndex }]);
+        }
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedOutsourceTests.length === reportData.length) {
+            setSelectedOutsourceTests([]);
+        } else {
+            // Select all currently visible in reportData (respects filter)
+            const all = reportData
+                .filter(row => row.status !== 'Settled')
+                .map(row => ({ id: `${row.orderId}-${row.testIndex}`, orderId: row.orderId, testIndex: row.testIndex }));
+            setSelectedOutsourceTests(all);
+        }
+    };
+
     const handleExport = () => {
         let headers = [];
         let dataRows = [];
@@ -357,7 +448,7 @@ const Finance = () => {
     const handleClearDue = async (order) => { /*...*/ if (confirm(`Confirm: Mark Order ${order.id} as PAID and clear due amount?`)) { const updated = { ...order, paymentStatus: 'Paid', balanceDue: 0, advancePaid: order.totalAmount, status: order.status === 'cancelled' ? 'pending' : order.status }; await storage.updateOrder(order.id, updated); loadData(); } };
     const handleCancelOrder = async (order) => { /*...*/ if (confirm(`Are you sure you want to CANCEL Order ${order.id}? This action cannot be easily undone.`)) { const updated = { ...order, status: 'cancelled', paymentStatus: 'Void', balanceDue: 0 }; await storage.updateOrder(order.id, updated); loadData(); } };
     const handleDownloadReceipt = (order) => { sessionStorage.setItem('print_invoice_data', JSON.stringify(order)); window.open('/print/invoice', '_blank'); };
-    const handleSettleTest = async (orderId, testIndex) => { const order = orders.find(o => o.id === orderId); if (!order) return; if (confirm(`Confirm settlement for Order ${orderId}: ${order.tests[testIndex].name}?`)) { const updatedTests = [...order.tests]; updatedTests[testIndex] = { ...updatedTests[testIndex], settlementStatus: 'Settled', minItemStock: undefined }; await storage.updateOrder(orderId, { tests: updatedTests }); loadData(); } };
+
     const StatusChip = ({ status }) => { const styles = { completed: 'bg-emerald-100 text-emerald-700', pending: 'bg-amber-100 text-amber-700', processing: 'bg-blue-100 text-blue-700', cancelled: 'bg-rose-100 text-rose-700', 'payment-due': 'bg-orange-100 text-orange-700 font-bold whitespace-nowrap' }; const displayStatus = status === 'payment-due' ? 'PAYMENT DUE' : status; return (<span className={`inline-flex items-center px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${styles[status] || styles['pending']}`}> {displayStatus} </span>); };
 
 
@@ -630,6 +721,32 @@ const Finance = () => {
                 </div>
             ) : (
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    {activeTab === 'outsourcing' && (
+                        <div className="flex items-center justify-between p-4 border-b border-slate-50 bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <h3 className="font-bold text-slate-700">Outsourcing Management</h3>
+                                <select
+                                    value={selectedVendor}
+                                    onChange={(e) => setSelectedVendor(e.target.value)}
+                                    className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2 outline-none"
+                                >
+                                    <option value="All">All Vendors</option>
+                                    {Object.keys(outsourcingStats).map(vendor => (
+                                        <option key={vendor} value={vendor}>{vendor}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {selectedOutsourceTests.length > 0 && (
+                                <button
+                                    onClick={handleBulkSettle}
+                                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                                >
+                                    <CheckCircle className="h-4 w-4" />
+                                    Bulk Settle ({selectedOutsourceTests.length})
+                                </button>
+                            )}
+                        </div>
+                    )}
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
@@ -637,7 +754,18 @@ const Finance = () => {
                                     {activeTab === 'daily' && (<><th className="px-6 py-4">Date</th><th className="px-6 py-4">Count</th><th className="px-6 py-4 text-right">Total Revenue</th></>)}
                                     {activeTab === 'tests' && (<><th className="px-6 py-4">Test Code</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Qty</th><th className="px-6 py-4 text-right">Revenue</th></>)}
                                     {activeTab === 'patients' && (<><th className="px-6 py-4">ID</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Visits</th><th className="px-6 py-4 text-right">Spent</th></>)}
-                                    {activeTab === 'outsourcing' && (<><th className="px-6 py-4">Test Info</th><th className="px-6 py-4 text-right">MRP</th><th className="px-6 py-4 text-right">L2L</th><th className="px-6 py-4 text-right">Margin</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th></>)}
+                                    {activeTab === 'trackers' && (<><th className="px-6 py-4">Order ID</th><th className="px-6 py-4">Patient</th><th className="px-6 py-4">Date</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Due Amount</th></>)}
+                                    {activeTab === 'outsourcing' && (<>
+                                        <th className="px-6 py-4">
+                                            <input
+                                                type="checkbox"
+                                                onChange={toggleSelectAll}
+                                                checked={reportData.length > 0 && selectedOutsourceTests.length === reportData.filter(d => d.status !== 'Settled').length}
+                                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                        </th>
+                                        <th className="px-6 py-4">Test Info</th><th className="px-6 py-4 text-right">MRP</th><th className="px-6 py-4 text-right">L2L</th><th className="px-6 py-4 text-right">Margin</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th>
+                                    </>)}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -646,8 +774,19 @@ const Finance = () => {
                                         {activeTab === 'daily' && (<><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.date}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">₹{row.revenue}</td></>)}
                                         {activeTab === 'tests' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.code}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
                                         {activeTab === 'patients' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.id}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.visits}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
+                                        {activeTab === 'trackers' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.id}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.patientName || row.patientId}</td><td className="px-6 py-4 text-sm text-slate-600">{new Date(row.createdAt).toLocaleDateString()}</td><td className="px-6 py-4"><span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Pending</span></td><td className="px-6 py-4 text-sm font-bold text-rose-600 text-right">₹{row.balanceDue || row.totalAmount}</td></>)}
                                         {activeTab === 'outsourcing' && (
                                             <>
+                                                <td className="px-6 py-4">
+                                                    {row.status !== 'Settled' && (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedOutsourceTests.some(x => x.id === `${row.orderId}-${row.testIndex}`)}
+                                                            onChange={() => toggleSelectTest(row.orderId, row.testIndex)}
+                                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                        />
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm font-bold text-slate-800">{row.testName}</div>
                                                     <div className="text-xs text-slate-500">{row.labPartner} | {new Date(row.sentDate).toLocaleDateString()}</div>

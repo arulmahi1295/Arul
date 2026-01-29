@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Save, X, AlertCircle, CheckCircle, RotateCcw, Upload, Download } from 'lucide-react';
 import { storage } from '../data/storage';
+
 import { useTests } from '../contexts/TestContext';
 import * as XLSX from 'xlsx';
+import { logAdmin } from '../utils/activityLogger';
 
 // Component to manage custom prices for a specific referral
 const ReferralPriceManager = ({ referral, onClose }) => {
@@ -44,7 +46,11 @@ const ReferralPriceManager = ({ referral, onClose }) => {
             newPrices[test.code] = Math.round(test.price * (1 - globalDiscount / 100));
         });
         setCustomPrices(newPrices);
+        setCustomPrices(newPrices);
         setMessage({ type: 'success', text: `Applied ${globalDiscount}% discount to all tests.` });
+
+        // Audit Log
+        logAdmin.referralPricingUpdated(referral.name, `Applied global discount of ${globalDiscount}% to all tests`);
     };
 
     // Excel Export Template
@@ -119,6 +125,13 @@ const ReferralPriceManager = ({ referral, onClose }) => {
             }, {});
 
             await storage.saveReferralPrices(referral.id, pricesToSave);
+
+            // Audit Log
+            const count = Object.keys(pricesToSave).length;
+            if (count > 0) {
+                await logAdmin.referralPricingUpdated(referral.name, `Updated custom prices for ${count} tests`);
+            }
+
             setMessage({ type: 'success', text: 'Prices updated successfully!' });
             setTimeout(() => onClose(), 1500);
         } catch (error) {

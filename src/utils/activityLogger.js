@@ -54,6 +54,12 @@ export const ACTION_TYPES = {
     SETTINGS_CHANGED: 'SETTINGS_CHANGED',
     PRICING_UPDATED: 'PRICING_UPDATED',
 
+    // New Audit Actions
+    PACKAGE_CREATED: 'PACKAGE_CREATED',
+    PACKAGE_UPDATED: 'PACKAGE_UPDATED',
+    PACKAGE_DELETED: 'PACKAGE_DELETED',
+    REFERRAL_PRICING_UPDATED: 'REFERRAL_PRICING_UPDATED',
+
     // System
     SYSTEM_ERROR: 'SYSTEM_ERROR',
     ACCESS_DENIED: 'ACCESS_DENIED',
@@ -210,13 +216,13 @@ export const logPatient = {
  * Log order/phlebotomy events
  */
 export const logOrder = {
-    created: (orderId, patientName, tests) =>
+    created: (orderId, patientName, tests, discount = 0) =>
         logActivity(
             ACTION_TYPES.ORDER_CREATED,
-            `Created order ${orderId} for ${patientName} (${tests.length} tests)`,
+            `Created order ${orderId} for ${patientName} (${tests.length} tests)${discount > 0 ? ` with discount ₹${discount}` : ''}`,
             MODULES.PHLEBOTOMY,
             SEVERITY.INFO,
-            { orderId, patientName, testCount: tests.length }
+            { orderId, patientName, testCount: tests.length, discount }
         ),
 
     updated: (orderId, changes) =>
@@ -342,13 +348,49 @@ export const logAdmin = {
             { setting, oldValue, newValue }
         ),
 
-    pricingUpdated: (testName, oldPrice, newPrice) =>
+    pricingUpdated: (testName, details) =>
         logActivity(
             ACTION_TYPES.PRICING_UPDATED,
-            `Updated pricing for ${testName}: ₹${oldPrice} → ₹${newPrice}`,
+            `Updated pricing for ${testName}: ${details}`,
             MODULES.ADMIN,
             SEVERITY.INFO,
-            { testName, oldPrice, newPrice }
+            { testName, details }
+        ),
+
+    referralPricingUpdated: (referralName, details) =>
+        logActivity(
+            ACTION_TYPES.REFERRAL_PRICING_UPDATED,
+            `Updated referral prices for ${referralName}: ${details}`,
+            MODULES.ADMIN,
+            SEVERITY.INFO,
+            { referralName, details }
+        ),
+
+    packageCreated: (pkgName, price) =>
+        logActivity(
+            ACTION_TYPES.PACKAGE_CREATED,
+            `Created package: ${pkgName} (₹${price})`,
+            MODULES.ADMIN,
+            SEVERITY.INFO,
+            { pkgName, price }
+        ),
+
+    packageUpdated: (pkgName, details) =>
+        logActivity(
+            ACTION_TYPES.PACKAGE_UPDATED,
+            `Updated package: ${pkgName}`,
+            MODULES.ADMIN,
+            SEVERITY.INFO,
+            { pkgName, details }
+        ),
+
+    packageDeleted: (pkgName) =>
+        logActivity(
+            ACTION_TYPES.PACKAGE_DELETED,
+            `Deleted package: ${pkgName}`,
+            MODULES.ADMIN,
+            SEVERITY.WARNING,
+            { pkgName }
         )
 };
 

@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Search, Plus, Trash2, Edit2, Save, X, AlertCircle, Package, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { storage } from '../data/storage';
+import { logAdmin } from '../utils/activityLogger';
 
 const PackageMaster = () => {
     const { tests, packages, refreshTests } = useTests(); // packages now available from context
@@ -84,6 +85,10 @@ const PackageMaster = () => {
         try {
             await storage.deletePackage(pkgId);
             setMessage({ type: 'success', text: 'Package deleted successfully.' });
+
+            // Audit Log
+            await logAdmin.packageDeleted(`Package ID: ${pkgId}`);
+
             refreshTests(); // Reloads packages too
         } catch (error) {
             console.error(error);
@@ -114,6 +119,14 @@ const PackageMaster = () => {
 
             await storage.savePackage(payload);
             setMessage({ type: 'success', text: editingPackage ? 'Package updated successfully.' : 'Package created successfully.' });
+
+            // Audit
+            if (editingPackage) {
+                await logAdmin.packageUpdated(payload.name, `Updated price to ₹${payload.price}`);
+            } else {
+                await logAdmin.packageCreated(payload.name, payload.price);
+            }
+
             refreshTests();
             resetForm();
         } catch (error) {

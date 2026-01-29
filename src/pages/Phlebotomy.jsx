@@ -349,7 +349,7 @@ const Phlebotomy = () => {
         } else {
             await storage.saveOrder(orderData);
             // Log order creation
-            await logOrder.created(orderData.id, selectedPatient.name, enrichedTests);
+            await logOrder.created(orderData.id, selectedPatient.name, enrichedTests, discount);
         }
 
         setLastOrder(orderData);

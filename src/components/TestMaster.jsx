@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Search, Plus, Trash2, Edit2, Save, X, AlertCircle, Beaker, Tag, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { logAdmin } from '../utils/activityLogger';
 
 const TestMaster = () => {
     const { tests, loading, refreshTests } = useTests();
@@ -90,6 +91,30 @@ const TestMaster = () => {
                 color: formData.color,
                 updatedAt: new Date().toISOString()
             };
+
+            // Detect Price Changes for Logging
+            if (editingTest) {
+                const oldPrice = parseFloat(editingTest.price) || 0;
+                const newPrice = payload.price;
+                const oldL2L = parseFloat(editingTest.l2lPrice) || 0;
+                const newL2L = payload.l2lPrice;
+
+                const changes = [];
+                if (oldPrice !== newPrice) changes.push(`MRP: ₹${oldPrice} -> ₹${newPrice}`);
+                if (oldL2L !== newL2L) changes.push(`L2L: ₹${oldL2L} -> ₹${newL2L}`);
+
+                if (changes.length > 0) {
+                    await logAdmin.pricingUpdated(payload.name, changes.join(', '));
+                }
+            } else {
+                // New Test - optional to log as pricing update, usually covered by USER_CREATED or similar, but let's be explicit if needed.
+                // Actually relying on the generic 'Settings Changed' or just assume creation log is enough. 
+                // But wait, TestMaster allows creation. 
+                // Let's log it if price > 0
+                if (payload.price > 0 || payload.l2lPrice > 0) {
+                    await logAdmin.pricingUpdated(payload.name, `Initial Price: MRP ₹${payload.price}, L2L ₹${payload.l2lPrice}`);
+                }
+            }
 
             // If creating new, set ID same as code (sanitized)
             await setDoc(doc(db, 'tests', testId), payload, { merge: true });
@@ -180,6 +205,7 @@ const TestMaster = () => {
                 if (updateCount > 0) {
                     await batch.commit();
                     setMessage({ type: 'success', text: `Successfully updated ${updateCount} tests.` });
+                    await logAdmin.pricingUpdated('Bulk Import', `Updated ${updateCount} tests via Excel upload`);
                     refreshTests();
                 } else {
                     setMessage({ type: 'info', text: 'No matching tests found to update.' });
