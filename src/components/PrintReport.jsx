@@ -16,6 +16,7 @@ const PrintReport = () => {
     const [headerImage, setHeaderImage] = useState(null);
     const [footerImage, setFooterImage] = useState(null);
     const [watermarkImage, setWatermarkImage] = useState(null);
+    const [labSeal, setLabSeal] = useState(null);
     const [labDetails, setLabDetails] = useState(null);
     const reportRef = useRef(null);
 
@@ -28,6 +29,7 @@ const PrintReport = () => {
                 setHeaderImage(settings.headerImage || null);
                 setFooterImage(settings.footerImage || null);
                 setWatermarkImage(settings.watermarkImage || null);
+                setLabSeal(settings.labSeal || null);
                 setLabDetails(settings.labDetails || null);
             }
         };

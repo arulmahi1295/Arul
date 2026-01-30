@@ -11,6 +11,7 @@ const PrintInvoice = () => {
     const [patient, setPatient] = useState(null);
     const [headerImage, setHeaderImage] = useState(null);
     const [footerImage, setFooterImage] = useState(null);
+    const [labSeal, setLabSeal] = useState(null);
     const [watermarkImage, setWatermarkImage] = useState(null);
 
     useEffect(() => {
@@ -40,6 +41,7 @@ const PrintInvoice = () => {
                 setHeaderImage(settings.headerImage || null);
                 setFooterImage(settings.footerImage || null);
                 setWatermarkImage(settings.watermarkImage || null);
+                setLabSeal(settings.labSeal || null);
             }
         };
         loadInvoiceData();
@@ -257,7 +259,8 @@ const PrintInvoice = () => {
                     <p className="mt-1">In case of any discrepancy, please contact administration within 24 hours.</p>
                 </div>
                 <div className="text-right">
-                    {!order.isEstimate && <div className="mb-2">
+                    {!order.isEstimate && <div className="mb-2 relative">
+                        {labSeal && <img src={labSeal} alt="Seal" className="absolute -top-12 -left-12 h-24 w-24 object-contain opacity-80 rotate-[-10deg]" />}
                         <div className="h-16 w-32 border-b border-slate-300 mb-1 ml-auto"></div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Authorized Signatory</p>
                     </div>}

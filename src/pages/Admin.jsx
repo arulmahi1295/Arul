@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag, ClipboardList, Filter, Search, Calendar, User as UserIcon, Beaker, Server, Wifi, Cpu, Package } from 'lucide-react';
+import { Shield, Lock, Unlock, Download, Trash2, Users, Activity, FileText, Database, Upload, PenTool, LayoutDashboard, UserPlus, FileSignature, Settings, AlertTriangle, Tag, ClipboardList, Filter, Search, Calendar, User as UserIcon, Beaker, Server, Wifi, Cpu, Package, Award, LayoutTemplate } from 'lucide-react';
 import { storage } from '../data/storage';
 import { TEST_CATALOG } from '../data/testCatalog';
 import TestPricingManager from '../components/TestPricingManager';
@@ -558,12 +558,13 @@ const ImageSetting = ({ title, image, onUpload, onDelete, icon: Icon, colorClass
 );
 
 const LabConfiguration = ({
-    pathologistSignature, labTechSignature, headerImage, footerImage, watermarkImage,
+    pathologistSignature, labTechSignature, headerImage, footerImage, watermarkImage, labSeal,
     onUploadPathologist, onDeletePathologist,
     onUploadLabTech, onDeleteLabTech,
     onUploadHeader, onDeleteHeader,
     onUploadFooter, onDeleteFooter,
     onUploadWatermark, onDeleteWatermark,
+    onUploadSeal, onDeleteSeal,
     details = {}, onSaveDetails
 }) => {
     const [formData, setFormData] = useState({
@@ -628,23 +629,34 @@ const LabConfiguration = ({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <ImageSetting
-                    title="Report Header"
+                    title="Lab Seal"
+                    icon={Award}
+                    colorClass="text-emerald-600"
+                    image={labSeal}
+                    onUpload={onUploadSeal}
+                    onDelete={onDeleteSeal}
+                />
+                <ImageSetting
+                    title="Header Image"
+                    icon={LayoutTemplate}
+                    colorClass="text-blue-600"
                     image={headerImage}
                     onUpload={onUploadHeader}
                     onDelete={onDeleteHeader}
-                    icon={LayoutDashboard}
-                    colorClass="text-blue-600"
                 />
                 <ImageSetting
-                    title="Report Footer"
+                    title="Footer Image"
+                    icon={LayoutTemplate}
+                    colorClass="text-blue-600"
                     image={footerImage}
                     onUpload={onUploadFooter}
                     onDelete={onDeleteFooter}
-                    icon={LayoutDashboard}
-                    colorClass="text-blue-600"
                 />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <ImageSetting
                     title="Watermark Logo"
                     image={watermarkImage}
@@ -1037,7 +1049,9 @@ const Admin = () => {
         labTechSignature: null,
         headerImage: null,
         footerImage: null,
+        footerImage: null,
         watermarkImage: null,
+        labSeal: null,
         labDetails: null
     });
 
@@ -1109,6 +1123,7 @@ const Admin = () => {
             headerImage: settings?.headerImage,
             footerImage: settings?.footerImage,
             watermarkImage: settings?.watermarkImage,
+            labSeal: settings?.labSeal,
             labDetails: settings?.labDetails
         });
     };
@@ -1272,6 +1287,7 @@ const Admin = () => {
     const handleHeaderUpload = (e) => handleSettingUpload(e, 'headerImage');
     const handleFooterUpload = (e) => handleSettingUpload(e, 'footerImage');
     const handleWatermarkUpload = (e) => handleSettingUpload(e, 'watermarkImage');
+    const handleSealUpload = (e) => handleSettingUpload(e, 'labSeal');
 
     // Export/Import Temporarily Disabled for Async Migration
     const handleExport = async () => {
@@ -1476,8 +1492,11 @@ const Admin = () => {
                                 headerImage={data.headerImage}
                                 footerImage={data.footerImage}
                                 watermarkImage={data.watermarkImage}
+                                labSeal={data.labSeal}
                                 onUploadPathologist={handleSignatureUpload}
                                 onDeletePathologist={handleDeleteSignature}
+                                onUploadSeal={handleSealUpload}
+                                onDeleteSeal={() => handleSettingDelete('labSeal')}
                                 onUploadLabTech={handleLabTechUpload}
                                 onDeleteLabTech={handleDeleteLabTech}
                                 onUploadHeader={handleHeaderUpload}
