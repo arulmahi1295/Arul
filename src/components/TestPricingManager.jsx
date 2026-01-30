@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useTests } from '../contexts/TestContext';
 import { Save, Search, RefreshCw, AlertCircle, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -11,6 +11,88 @@ const TestPricingManager = () => {
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [message, setMessage] = useState(null);
+    const [duplicates, setDuplicates] = useState([]);
+
+    // Check for duplicates
+    useEffect(() => {
+        if (tests.length > 0) {
+            // Group by CODE
+            const groupsCode = tests.reduce((acc, t) => {
+                const c = (t.code || '').trim().toUpperCase();
+                if (!c) return acc;
+                if (!acc[c]) acc[c] = [];
+                acc[c].push(t);
+                return acc;
+            }, {});
+
+            // Group by NAME
+            const groupsName = tests.reduce((acc, t) => {
+                const n = (t.name || '').trim().toUpperCase();
+                if (!n) return acc;
+                if (!acc[n]) acc[n] = [];
+                acc[n].push(t);
+                return acc;
+            }, {});
+
+            const dupGroupsCode = Object.entries(groupsCode)
+                .filter(([k, v]) => v.length > 1)
+                .map(([k, v]) => ({ type: 'CODE', key: k, items: v }));
+
+            const dupGroupsName = Object.entries(groupsName)
+                .filter(([k, v]) => v.length > 1)
+                // Filter out if already caught by code to avoid double counting
+                .filter(([k, v]) => !dupGroupsCode.some(g => g.items.some(i => i.name.toUpperCase() === k)))
+                .map(([k, v]) => ({ type: 'NAME', key: k, items: v }));
+
+            // Combine
+            setDuplicates([...dupGroupsCode, ...dupGroupsName]);
+        }
+    }, [tests]);
+
+    const handleFixDuplicates = async () => {
+        if (!window.confirm(`Found ${duplicates.length} sets of duplicates (by Code or Name). Proceed to clean up?`)) return;
+
+        setSaving(true);
+        try {
+            let deletedCount = 0;
+            for (const group of duplicates) {
+                // Determine keeper based on heuristics
+                const sorted = [...group.items].sort((a, b) => {
+                    // 1. Prefer existing L2L price
+                    const aPrice = (a.l2lPrice || 0);
+                    const bPrice = (b.l2lPrice || 0);
+                    if (aPrice !== bPrice) return bPrice - aPrice;
+
+                    // 2. Prefer ID matching Code
+                    const aIdMatch = a.id === a.code ? 1 : 0;
+                    const bIdMatch = b.id === b.code ? 1 : 0;
+                    if (aIdMatch !== bIdMatch) return bIdMatch - aIdMatch;
+
+                    // 3. Updated recently? (assuming updatedAt field exists and is comparable string)
+                    if (a.updatedAt && b.updatedAt) return b.updatedAt.localeCompare(a.updatedAt);
+
+                    return 0;
+                });
+
+                const [keeper, ...removers] = sorted;
+                console.log(`Keeping ${keeper.id} (${keeper.name})`, keeper);
+
+                for (const r of removers) {
+                    if (r.id === keeper.id) continue;
+                    await deleteDoc(doc(db, 'tests', r.id));
+                    deletedCount++;
+                }
+            }
+            setMessage({ type: 'success', text: `Cleanup complete! Removed ${deletedCount} entries.` });
+            setDuplicates([]);
+            refreshTests();
+        } catch (e) {
+            console.error(e);
+            setMessage({ type: 'error', text: 'Failed to fix duplicates: ' + e.message });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     // Local state to track price edits before saving
     const [editedPrices, setEditedPrices] = useState({});
@@ -49,59 +131,101 @@ const TestPricingManager = () => {
                 const data = XLSX.utils.sheet_to_json(ws);
 
                 let matchCount = 0;
-                const newPrices = { ...prices };
+                let failCount = 0;
+                const newPrices = { ...editedPrices }; // Fix: Use editedPrices, not undefined 'prices'
 
                 data.forEach(row => {
+                    // Normalize keys
                     const rowNormalized = {};
-                    Object.keys(row).forEach(k => rowNormalized[k.toLowerCase().trim()] = row[k]);
+                    Object.keys(row).forEach(k => rowNormalized[k.trim().toLowerCase()] = row[k]);
 
-                    const code = rowNormalized['test code'] || rowNormalized['code'];
-                    const priceRaw = rowNormalized['l2l cost'] || rowNormalized['l2l price'] || rowNormalized['cost'] || rowNormalized['price'];
+                    // extract code and price
+                    let code = rowNormalized['test code'] || rowNormalized['code'];
+                    if (code && typeof code === 'string') code = code.trim();
+
+                    let priceRaw = rowNormalized['l2l cost'] || rowNormalized['l2l price'] || rowNormalized['cost'] || rowNormalized['price'];
+                    // sanitize price string (remove currency symbols, commas)
+                    if (typeof priceRaw === 'string') {
+                        priceRaw = priceRaw.replace(/[^0-9.-]/g, '');
+                    }
                     const price = parseFloat(priceRaw);
 
                     if (!isNaN(price)) {
-                        let test = tests.find(t => t.code === code);
+                        let test = null;
+
+                        // Try matching by Code (Case Insensitive)
+                        if (code) {
+                            test = tests.find(t => t.code.trim().toLowerCase() === code.toString().toLowerCase());
+                        }
+
+                        // Try matching by Name if Code fails
                         if (!test && rowNormalized['test name']) {
-                            test = tests.find(t => t.name.toLowerCase() === rowNormalized['test name'].toLowerCase());
+                            const searchName = rowNormalized['test name'].toString().trim().toLowerCase();
+                            test = tests.find(t => t.name.toLowerCase() === searchName);
                         }
 
                         if (test) {
                             newPrices[test.id] = price;
                             matchCount++;
+                        } else {
+                            failCount++;
+                            console.warn("Could not match row:", row);
                         }
                     }
                 });
 
                 setEditedPrices(newPrices);
-                setMessage({ type: 'success', text: `Imported ${matchCount} prices. Click Save to persist.` });
+
+                if (matchCount > 0) {
+                    let msg = `Loaded ${matchCount} prices.`;
+                    if (failCount > 0) msg += ` (Skipped ${failCount} rows - check console for details).`;
+                    msg += " Click Save to apply.";
+                    setMessage({ type: 'success', text: msg });
+                } else {
+                    setMessage({ type: 'error', text: 'No matching tests found in file. Please check column headers (Need "Test Code" or "Test Name").' });
+                }
             } catch (error) {
                 console.error(error);
                 setMessage({ type: 'error', text: 'Failed to import file. Ensure it is a valid Excel file.' });
             }
         };
         reader.readAsBinaryString(file);
+        // Reset input to allow re-upload of same file if needed
+        e.target.value = '';
     };
 
     const savePrices = async () => {
         setSaving(true);
         setMessage(null);
         try {
-            // Batch writes are better, but simple setDoc loops are fine for moderate volume 
-            // since we only save changed items ideally, but here we save all for simplicity in V1
-            // Refinement: Only save what changed. 
-            // Better Strategy: Save individual entries on blur or a bulk save.
+            const entries = Object.entries(editedPrices);
+            const batchSize = 400; // Limit is 500, keeping safety margin
+            const chunks = [];
 
-            const promises = Object.entries(editedPrices).map(([id, price]) =>
-                setDoc(doc(db, 'tests', id), { // Update direct test document using ID
-                    l2lPrice: parseFloat(price),
-                    updatedAt: new Date().toISOString()
-                }, { merge: true })
-            );
+            for (let i = 0; i < entries.length; i += batchSize) {
+                chunks.push(entries.slice(i, i + batchSize));
+            }
 
-            await Promise.all(promises);
+            console.log(`Saving ${entries.length} price updates in ${chunks.length} batches...`);
+
+            for (const chunk of chunks) {
+                const batch = writeBatch(db);
+                chunk.forEach(([id, price]) => {
+                    // Sanitize ID to match Firestore doc ID (replace slashes with underscores)
+                    // e.g. "CD4/8" -> "CD4_8"
+                    const safeId = id.toString().replace(/\//g, '_');
+                    const ref = doc(db, 'tests', safeId);
+
+                    batch.set(ref, {
+                        l2lPrice: parseFloat(price),
+                        updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                });
+                await batch.commit();
+            }
 
             // Audit Log
-            const count = Object.keys(editedPrices).length;
+            const count = entries.length;
             if (count > 0) {
                 await logAdmin.pricingUpdated('L2L Manager', `Bulk updated L2L costs for ${count} tests`);
             }
@@ -111,7 +235,7 @@ const TestPricingManager = () => {
             setEditedPrices({});
         } catch (error) {
             console.error("Error saving prices:", error);
-            setMessage({ type: 'error', text: 'Failed to save prices.' });
+            setMessage({ type: 'error', text: `Failed to save prices: ${error.message}` });
         } finally {
             setSaving(false);
         }
@@ -143,6 +267,17 @@ const TestPricingManager = () => {
                     </label>
 
                     <div className="w-px h-8 bg-slate-200 mx-1 hidden sm:block"></div>
+
+                    {duplicates.length > 0 && (
+                        <button
+                            onClick={handleFixDuplicates}
+                            className="bg-red-100 text-red-600 hover:bg-red-200 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 animate-pulse"
+                            title="Fix Duplicates"
+                        >
+                            <AlertCircle size={18} />
+                            Fix {duplicates.length} Duplicates
+                        </button>
+                    )}
 
                     <button
                         onClick={refreshTests}

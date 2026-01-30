@@ -377,7 +377,7 @@ const PrintReport = () => {
                 <footer className="mt-auto z-10 relative shrink-0">
                     <div className="border-t-2 border-slate-200 pt-6 print:break-inside-avoid">
                         {/* Signatures */}
-                        <div className="flex justify-end items-end gap-12 mb-6">
+                        <div className="flex justify-end items-end gap-12 mb-6 relative">
                             <div className="text-center relative">
                                 {labTechSignature && (
                                     <img

@@ -230,7 +230,10 @@ const PackageMaster = () => {
                                     <span className={`text-xs px-2 py-0.5 rounded-md border ${profit > 0 ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
                                         Profit: ₹{profit} ({margin}%)
                                     </span>
-                                    <span className="text-[10px] text-slate-400">
+                                    <span
+                                        className="text-[10px] text-slate-400 cursor-help border-b border-dotted border-slate-300"
+                                        title={`Cost Breakdown:\n${pkgTests.map(t => `${t.name}: ₹${t.l2lPrice || 0}`).join('\n')}`}
+                                    >
                                         (Cost: ₹{pkgL2L})
                                     </span>
                                 </div>
