@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { TestProvider } from './contexts/TestContext';
+import SealUploader from './components/SealUploader';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -89,6 +90,7 @@ function App() {
 
   return (
     <TestProvider>
+      <SealUploader />
       <BrowserRouter>
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
