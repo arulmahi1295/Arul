@@ -801,20 +801,22 @@ const Phlebotomy = () => {
                             </div>
                         </div>
 
-                        {/* Payment Confirmation Checkbox */}
-                        <div className="mt-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                            <label className="flex items-start gap-3 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={isPaymentConfirmed}
-                                    onChange={(e) => setIsPaymentConfirmed(e.target.checked)}
-                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                />
-                                <span className="text-sm text-slate-700">
-                                    I confirm that I have received <strong>₹{advancePaid}</strong> via <strong>{paymentMode}</strong> and verified the transaction.
-                                </span>
-                            </label>
-                        </div>
+                        {/* Payment Confirmation Checkbox - Only show if paying > 0 */}
+                        {advancePaid > 0 && (
+                            <div className="mt-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isPaymentConfirmed}
+                                        onChange={(e) => setIsPaymentConfirmed(e.target.checked)}
+                                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-slate-700">
+                                        I confirm that I have received <strong>₹{advancePaid}</strong> via <strong>{paymentMode}</strong> and verified the transaction.
+                                    </span>
+                                </label>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex gap-2 mb-3">
@@ -828,7 +830,7 @@ const Phlebotomy = () => {
                     </div>
 
                     <button
-                        disabled={!selectedPatient || selectedTests.length === 0 || !isPaymentConfirmed}
+                        disabled={!selectedPatient || selectedTests.length === 0 || (advancePaid > 0 && !isPaymentConfirmed)}
                         onClick={() => {
                             if (paymentStatus === 'Paid' && advancePaid < calculateTotal()) {
                                 alert("Error: Status cannot be 'Paid' if there is a Balance Due. Please change status to 'Pending' or collect full amount.");
