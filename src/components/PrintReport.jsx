@@ -192,7 +192,9 @@ const PrintReport = () => {
                         </div>
                         <div>
                             <p className="text-[9px] text-slate-400 mb-1 uppercase tracking-wide">Age / Gender</p>
-                            <p className="font-semibold text-slate-700">{reportData.age} Years / {reportData.gender}</p>
+                            <p className="font-semibold text-slate-700">
+                                {reportData.age} Years / {reportData.gender ? (reportData.gender.charAt(0).toUpperCase() + reportData.gender.slice(1)) : '-'}
+                            </p>
                         </div>
                         <div>
                             <p className="text-[9px] text-slate-400 mb-1 uppercase tracking-wide">Sample Collected</p>

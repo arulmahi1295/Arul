@@ -124,7 +124,11 @@ const PrintInvoice = () => {
                     <div className="space-y-1">
                         <p className="text-lg font-bold text-slate-900">{patient ? patient.fullName : (order.patientName || 'Unknown')}</p>
                         <p className="text-sm text-slate-500 font-medium">ID: {patient ? patient.id : (order.patientId?.split(' - ')[0] || '-')}</p>
-                        {patient && <p className="text-sm text-slate-500">{patient.age} Yrs / {patient.gender === 'Male' ? 'Male' : 'Female'}</p>}
+                        {patient && (
+                            <p className="text-sm text-slate-500">
+                                {patient.age} Yrs / {patient.gender ? (patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)) : '-'}
+                            </p>
+                        )}
                         {patient?.phone && <p className="text-sm text-slate-500 pt-1">{patient.phone}</p>}
                     </div>
                 </div>

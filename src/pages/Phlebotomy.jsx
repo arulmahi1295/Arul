@@ -572,7 +572,9 @@ const Phlebotomy = () => {
                                                 className="w-full text-left p-3 hover:bg-slate-50 border-b border-slate-50 last:border-0"
                                             >
                                                 <p className="font-medium text-slate-800 text-sm">{p.fullName}</p>
-                                                <p className="text-xs text-slate-500">{p.phone} • {p.gender}/{p.age}</p>
+                                                <p className="text-xs text-slate-500">
+                                                    {p.phone} • {p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1)) : ''}/{p.age}
+                                                </p>
                                             </button>
                                         ))}
                                     </div>
