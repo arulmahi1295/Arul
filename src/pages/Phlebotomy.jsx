@@ -8,6 +8,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useTests } from '../contexts/TestContext';
 import EditPatientModal from '../components/EditPatientModal';
 import { logOrder } from '../utils/activityLogger';
+import { processStockDeduction } from '../utils/inventoryUtils';
 
 const Phlebotomy = () => {
     const { tests, packages } = useTests();
@@ -26,6 +27,7 @@ const Phlebotomy = () => {
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [patientSearchResults, setPatientSearchResults] = useState([]);
     const [showPatientResults, setShowPatientResults] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
 
     // Order Details State
     const [paymentMode, setPaymentMode] = useState('Cash');
@@ -151,19 +153,35 @@ const Phlebotomy = () => {
                     if (patient) setFullPatientDetails(patient);
                 }
             }
-            else if (location.state?.prefillPatient) {
-                setSelectedPatient({
-                    name: location.state.prefillPatient,
-                    id: location.state.patientId
-                });
-                setPatientSearch(location.state.prefillPatient);
-                if (location.state.paymentMode) setPaymentMode(location.state.paymentMode);
-                if (location.state.homeCollectionCharges) setHomeCollectionCharges(location.state.homeCollectionCharges);
+            else if (location.state?.prefillPatient || location.state?.homeCollection) {
+                const data = location.state.homeCollection || {};
+                const name = location.state.prefillPatient || data.name;
+                const phone = data.phone;
 
-                // Fetch full  details
-                const patients = await storage.getPatients();
-                const patient = patients.find(p => p.id === location.state.patientId);
-                if (patient) setFullPatientDetails(patient);
+                setSelectedPatient({
+                    name: name,
+                    id: location.state.patientId || 'NEW_HC_PATIENT', // innovative ID to trigger new flow
+                    phone: phone // Store for reference
+                });
+                setPatientSearch(name);
+
+                if (location.state?.homeCollection) {
+                    setProcessingMode('Home Collection');
+                    setOrderStatus('collected'); // Skip to Accession
+                    setHomeCollectionCharges(150); // Default charge or dynamic
+                    // We might want to trigger "New Patient" modal if ID is missing.
+                    // But for now, we just pre-fill the search.
+                }
+
+                if (location.state?.paymentMode) setPaymentMode(location.state.paymentMode);
+                if (location.state?.homeCollectionCharges) setHomeCollectionCharges(location.state.homeCollectionCharges);
+
+                // Fetch full details if ID exists
+                if (location.state?.patientId) {
+                    const patients = await storage.getPatients();
+                    const patient = patients.find(p => p.id === location.state.patientId);
+                    if (patient) setFullPatientDetails(patient);
+                }
             }
         };
         loadInitialData();
@@ -285,7 +303,14 @@ const Phlebotomy = () => {
 
     const handleCreateOrder = async () => {
         if (!selectedPatient || selectedTests.length === 0) return;
+
+        if (paymentStatus === 'Paid' && advancePaid < calculateTotal()) {
+            alert("Error: Status cannot be 'Paid' if there is a Balance Due. Please change status to 'Pending' or collect full amount.");
+            return;
+        }
+
         setOrderStatus('processing');
+        setSubmitError(null);
 
         // Enrich tests with L2L Price and Referral Price
         // Enrich tests with L2L Price and Referral Price
@@ -334,7 +359,7 @@ const Phlebotomy = () => {
             advancePaid: advancePaid,
             balanceDue: calculateTotal() - advancePaid,
             paymentRemarks: paymentRemarks,
-            status: editingOrder ? editingOrder.status : 'pending',
+            status: editingOrder ? editingOrder.status : (processingMode === 'Home Collection' ? 'collected' : 'pending'),
             paymentMode: paymentMode,
             paymentStatus: paymentStatus,
             processingMode: processingMode,
@@ -342,22 +367,41 @@ const Phlebotomy = () => {
             createdAt: editingOrder ? editingOrder.createdAt : new Date().toISOString()
         };
 
-        if (editingOrder) {
-            await storage.updateOrder(orderData.id, orderData);
-            // Log order update
-            await logOrder.updated(orderData.id, { tests: enrichedTests.length, amount: calculateTotal() });
-        } else {
-            await storage.saveOrder(orderData);
-            // Log order creation
-            await logOrder.created(orderData.id, selectedPatient.name, enrichedTests, discount);
+        try {
+            if (editingOrder) {
+                await storage.updateOrder(orderData.id, orderData);
+                // Log order update
+                await logOrder.updated(orderData.id, { tests: enrichedTests.length, amount: calculateTotal() });
+            } else {
+                await storage.saveOrder(orderData);
+                // Log order creation
+                await logOrder.created(orderData.id, selectedPatient.name, enrichedTests, discount);
+            }
+
+            // Auto-deduct stock if already collected (e.g. Home Collection)
+            if (orderData.status === 'collected') {
+                const usedStock = await processStockDeduction(orderData);
+                if (usedStock.length > 0) {
+                    console.log(`Stock deducted for Home Collection: ${usedStock.join(', ')}`);
+                    // Optional: Notify user or just log it
+                }
+            }
+
+            setLastOrder(orderData);
+
+            // Simulate processing persistence
+            setTimeout(() => {
+                setOrderStatus('completed');
+            }, 1000);
+        } catch (error) {
+            console.error("Order Creation Error:", error);
+            setOrderStatus('new'); // Reset status so they can try again
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setSubmitError("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                setSubmitError("Failed to save order. Please check connection.");
+            }
         }
-
-        setLastOrder(orderData);
-
-        // Simulate processing persistence
-        setTimeout(() => {
-            setOrderStatus('completed');
-        }, 1000);
     };
 
     const handlePrintEstimate = () => {
@@ -829,15 +873,15 @@ const Phlebotomy = () => {
                         </button>
                     </div>
 
+                    {submitError && (
+                        <div className="mb-3 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold">
+                            {submitError}
+                        </div>
+                    )}
+
                     <button
                         disabled={!selectedPatient || selectedTests.length === 0 || (advancePaid > 0 && !isPaymentConfirmed)}
-                        onClick={() => {
-                            if (paymentStatus === 'Paid' && advancePaid < calculateTotal()) {
-                                alert("Error: Status cannot be 'Paid' if there is a Balance Due. Please change status to 'Pending' or collect full amount.");
-                                return;
-                            }
-                            handleCreateOrder();
-                        }}
+                        onClick={handleCreateOrder}
                         className={`w-full py-3 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg ${editingOrder ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
                             }`}
                     >

@@ -114,7 +114,12 @@ const PatientRegistration = () => {
             setShowSuccessModal(true);
             loadInitialData(); // Refresh recent list
         } catch (error) {
-            setSubmitError("Failed to save patient. Please check connection.");
+            console.error("Registration Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setSubmitError("Start Error: Permission Denied. Please ask Admin to check Firestore Rules.");
+            } else {
+                setSubmitError("Failed to save patient. Please check connection.");
+            }
         } finally {
             setIsSaving(false);
         }

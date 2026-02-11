@@ -34,14 +34,20 @@ const Inventory = () => {
     });
 
     useEffect(() => {
-        loadInventory();
+        setLoading(true);
+        const unsubscribe = storage.subscribeToInventory((data) => {
+            setItems(data);
+            setLoading(false);
+        });
+
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
     }, []);
 
     const loadInventory = async () => {
-        setLoading(true);
+        // Redundant if subscribed, but kept for manual refresh if needed elsewhere or failed sub
         const data = await storage.getInventory();
         setItems(data);
-        setLoading(false);
     };
 
     const handleSave = async (e) => {
@@ -57,36 +63,62 @@ const Inventory = () => {
             resetForm();
         } catch (error) {
             console.error("Failed to save item", error);
-            alert("Failed to save item");
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to save item. Please check connection.");
+            }
         }
     };
 
     const handleInitializeStock = async () => {
         if (!confirm('Add standard test tubes to inventory? (EDTA, SST, Fluoride, Citrate, Urine Container)')) return;
 
-        const defaults = [
-            { name: 'EDTA Vacutainer (Lavender)', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
-            { name: 'SST Vacutainer (Yellow)', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
-            { name: 'Fluoride Vacutainer (Grey)', category: 'Consumables', quantity: 50, unit: 'pcs', minLevel: 10 },
-            { name: 'Citrate Vacutainer (Blue)', category: 'Consumables', quantity: 50, unit: 'pcs', minLevel: 10 },
-            { name: 'Urine Container', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
-        ];
+        try {
+            const defaults = [
+                { name: 'EDTA Vacutainer (Lavender)', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
+                { name: 'SST Vacutainer (Yellow)', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
+                { name: 'Fluoride Vacutainer (Grey)', category: 'Consumables', quantity: 50, unit: 'pcs', minLevel: 10 },
+                { name: 'Citrate Vacutainer (Blue)', category: 'Consumables', quantity: 50, unit: 'pcs', minLevel: 10 },
+                { name: 'Urine Container', category: 'Consumables', quantity: 100, unit: 'pcs', minLevel: 20 },
+                { name: 'Vacutainer Needle (21G)', category: 'Consumables', quantity: 200, unit: 'pcs', minLevel: 50 },
+                { name: 'Alcohol Swab', category: 'Consumables', quantity: 200, unit: 'pcs', minLevel: 50 },
+                { name: 'Band-Aid (Spot)', category: 'Consumables', quantity: 200, unit: 'pcs', minLevel: 50 },
+                { name: 'Latex Gloves', category: 'Consumables', quantity: 100, unit: 'pairs', minLevel: 20 },
+            ];
 
-        for (const item of defaults) {
-            // Check if exists
-            const exists = items.some(i => i.name === item.name);
-            if (!exists) {
-                await storage.saveInventoryItem(item);
+            for (const item of defaults) {
+                // Check if exists
+                const exists = items.some(i => i.name === item.name);
+                if (!exists) {
+                    await storage.saveInventoryItem(item);
+                }
+            }
+            loadInventory();
+            alert('Standard stock initialized!');
+        } catch (error) {
+            console.error("Failed to initialize stock", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to initialize stock.");
             }
         }
-        loadInventory();
-        alert('Standard stock initialized!');
     };
 
     const handleDelete = async (id) => {
         if (confirm('Are you sure you want to delete this item?')) {
-            await storage.deleteInventoryItem(id);
-            loadInventory();
+            try {
+                await storage.deleteInventoryItem(id);
+                loadInventory();
+            } catch (error) {
+                console.error("Failed to delete item", error);
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    alert("Permission Denied: Ask Admin to check Firestore Rules.");
+                } else {
+                    alert("Failed to delete item.");
+                }
+            }
         }
     };
 
@@ -94,10 +126,22 @@ const Inventory = () => {
         const newQuantity = Number(item.quantity) + change;
         if (newQuantity < 0) return;
 
-        await storage.updateInventoryItem(item.id, { quantity: newQuantity });
-
         // Optimistic update
+        const originalItems = [...items];
         setItems(items.map(i => i.id === item.id ? { ...i, quantity: newQuantity } : i));
+
+        try {
+            await storage.updateInventoryItem(item.id, { quantity: newQuantity });
+        } catch (error) {
+            console.error("Failed to update stock", error);
+            // Revert optimistic update
+            setItems(originalItems);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to update stock.");
+            }
+        }
     };
 
     const resetForm = () => {

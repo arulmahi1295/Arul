@@ -88,7 +88,11 @@ const TestPricingManager = () => {
             refreshTests();
         } catch (e) {
             console.error(e);
-            setMessage({ type: 'error', text: 'Failed to fix duplicates: ' + e.message });
+            if (e.code === 'permission-denied' || e.message?.includes('permission-denied')) {
+                setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to fix duplicates: ' + e.message });
+            }
         } finally {
             setSaving(false);
         }
@@ -235,7 +239,11 @@ const TestPricingManager = () => {
             setEditedPrices({});
         } catch (error) {
             console.error("Error saving prices:", error);
-            setMessage({ type: 'error', text: `Failed to save prices: ${error.message}` });
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+            } else {
+                setMessage({ type: 'error', text: `Failed to save prices: ${error.message}` });
+            }
         } finally {
             setSaving(false);
         }

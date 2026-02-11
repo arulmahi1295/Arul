@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, Search, Truck, Building2, CheckCircle, Clock, AlertCircle, Play, PackageCheck, FileDown } from 'lucide-react';
 import { storage } from '../data/storage';
+import { processStockDeduction } from '../utils/inventoryUtils';
 
 const Accession = () => {
     const [activeTab, setActiveTab] = useState('reception'); // reception | assignment | processing | completed
@@ -46,42 +47,14 @@ const Accession = () => {
         setOrders(filtered);
     };
 
-    const deductStock = async (order) => {
-        let log = [];
-        // Heuristic: 1 tube per Unique Category per Patient
-        const cats = new Set(order.tests.map(t => (t.category || '').toUpperCase()));
 
-        for (const cat of cats) {
-            let keywords = [];
-            if (cat === 'HEMATOLOGY') keywords = ['EDTA', 'LAVENDER', 'CBC'];
-            else if (cat.includes('BIOCHEMISTRY') || cat.includes('IMMUNOLOGY') || cat.includes('SEROLOGY')) keywords = ['SST', 'YELLOW', 'SERUM', 'PLAIN', 'CLOT'];
-            else if (cat.includes('GLUCOSE') || cat.includes('DIABETES')) keywords = ['FLUORIDE', 'GREY', 'GRAY'];
-            else if (cat.includes('COAGULATION')) keywords = ['CITRATE', 'BLUE'];
-            else if (cat.includes('URINE') || cat.includes('CLINICAL')) keywords = ['URINE', 'CONTAINER'];
-
-            if (keywords.length > 0) {
-                // Find first matching item with stock
-                const item = inventoryItems.find(i =>
-                    keywords.some(k => i.name.toUpperCase().includes(k)) && Number(i.quantity) > 0
-                );
-
-                if (item) {
-                    await storage.updateInventoryItem(item.id, { quantity: Number(item.quantity) - 1 });
-                    // Update local state to prevent double deduction if multiple orders processed quickly
-                    setInventoryItems(prev => prev.map(p => p.id === item.id ? { ...p, quantity: Number(p.quantity) - 1 } : p));
-                    log.push(item.name);
-                }
-            }
-        }
-        return log;
-    };
 
     const handleReceiveSample = async (orderId) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
 
-        // Auto-deduct inventory
-        const usedStock = await deductStock(order);
+        // Auto-deduct inventory using central utility
+        const usedStock = await processStockDeduction(order);
 
         await storage.updateOrder(orderId, {
             status: 'collected',
@@ -90,10 +63,10 @@ const Accession = () => {
 
         if (usedStock.length > 0) {
             alert(`Sample Received. Stock deducted: ${usedStock.join(', ')}`);
-        } else {
-            // alert('Sample Received.'); // Optional: Less noise
         }
 
+        // Refresh local inventory items to reflect changes visually if needed, though Accession.jsx reloads on tab change
+        loadInventory();
         loadOrders();
     };
 

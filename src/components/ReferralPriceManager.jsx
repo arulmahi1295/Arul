@@ -135,7 +135,12 @@ const ReferralPriceManager = ({ referral, onClose }) => {
             setMessage({ type: 'success', text: 'Prices updated successfully!' });
             setTimeout(() => onClose(), 1500);
         } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to save prices.' });
+            console.error(error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to save prices.' });
+            }
         } finally {
             setIsSaving(false);
         }

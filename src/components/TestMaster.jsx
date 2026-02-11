@@ -64,7 +64,11 @@ const TestMaster = () => {
             refreshTests();
         } catch (error) {
             console.error(error);
-            setMessage({ type: 'error', text: 'Failed to delete test.' });
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to delete test.' });
+            }
         }
     };
 
@@ -124,7 +128,11 @@ const TestMaster = () => {
             resetForm();
         } catch (error) {
             console.error(error);
-            setMessage({ type: 'error', text: error.message || 'Failed to save test.' });
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+            } else {
+                setMessage({ type: 'error', text: error.message || 'Failed to save test.' });
+            }
         } finally {
             setSaving(false);
         }
@@ -213,7 +221,11 @@ const TestMaster = () => {
 
             } catch (error) {
                 console.error("Import Error", error);
-                setMessage({ type: 'error', text: `Import Failed: ${error.message}` });
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+                } else {
+                    setMessage({ type: 'error', text: `Import Failed: ${error.message}` });
+                }
             } finally {
                 setImporting(false);
                 e.target.value = null; // Reset input

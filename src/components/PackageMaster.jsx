@@ -92,7 +92,11 @@ const PackageMaster = () => {
             refreshTests(); // Reloads packages too
         } catch (error) {
             console.error(error);
-            setMessage({ type: 'error', text: 'Failed to delete package.' });
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to delete package.' });
+            }
         }
     };
 
@@ -131,7 +135,11 @@ const PackageMaster = () => {
             resetForm();
         } catch (error) {
             console.error(error);
-            setMessage({ type: 'error', text: error.message || 'Failed to save package.' });
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                setMessage({ type: 'error', text: 'Permission Denied: Ask Admin to check Firestore Rules.' });
+            } else {
+                setMessage({ type: 'error', text: error.message || 'Failed to save package.' });
+            }
         } finally {
             setSaving(false);
         }

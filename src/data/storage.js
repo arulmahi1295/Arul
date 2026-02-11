@@ -11,7 +11,8 @@ import {
     Timestamp,
     doc,
     updateDoc,
-    deleteDoc
+    deleteDoc,
+    onSnapshot
 } from 'firebase/firestore';
 
 const COLLECTIONS = {
@@ -331,6 +332,16 @@ export const storage = {
         return newItem;
     },
 
+    updateHomeCollection: async (id, updates) => {
+        const q = query(collection(db, COLLECTIONS.HOME_COLLECTIONS), where('id', '==', id));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+            const docRef = snap.docs[0].ref;
+            await updateDoc(docRef, updates);
+            return { ...snap.docs[0].data(), ...updates };
+        }
+    },
+
     // Settings
     getSettings: async () => {
         const snap = await getDocs(collection(db, COLLECTIONS.SETTINGS));
@@ -351,6 +362,14 @@ export const storage = {
     getInventory: async () => {
         const snap = await getDocs(collection(db, COLLECTIONS.INVENTORY));
         return snap.docs.map(d => ({ ...d.data(), firebaseId: d.id }));
+    },
+    // Real-time subscription
+    subscribeToInventory: (callback) => {
+        const q = query(collection(db, COLLECTIONS.INVENTORY));
+        return onSnapshot(q, (snapshot) => {
+            const items = snapshot.docs.map(d => ({ ...d.data(), firebaseId: d.id }));
+            callback(items);
+        });
     },
     saveInventoryItem: async (item) => {
         const newItem = {

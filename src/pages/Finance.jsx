@@ -58,6 +58,7 @@ const Finance = () => {
     // Outsourcing Feature States
     const [selectedVendor, setSelectedVendor] = useState('All');
     const [selectedOutsourceTests, setSelectedOutsourceTests] = useState([]); // Array of {orderId, testIndex}
+    const [settlementModal, setSettlementModal] = useState({ open: false, type: 'single', data: null }); // type: single | bulk
 
     useEffect(() => {
         loadData();
@@ -111,7 +112,7 @@ const Finance = () => {
             const mode = o.paymentMode || 'Cash';
             mix[mode] = (mix[mode] || 0) + (o.totalAmount || 0);
         });
-        const mixData = Object.keys(mix).map(key => ({ name: key, value: mix[key], color: key === 'Cash' ? '#10B981' : key === 'UPI' ? '#6366f1' : '#F59E0B' }));
+        const mixData = Object.keys(mix).map(key => ({ name: key, value: mix[key], color: key === 'Cash' ? '#4f46e5' : key === 'UPI' ? '#8b5cf6' : '#F59E0B' }));
         setPaymentMixData(mixData);
     };
 
@@ -154,7 +155,21 @@ const Finance = () => {
             });
             data = Object.values(patientMap).sort((a, b) => b.revenue - a.revenue);
         } else if (activeTab === 'trackers') {
-            data = orders.filter(o => o.paymentStatus === 'Pending' || o.balanceDue > 0);
+            // Updated filtering to handle legacy/seed data where paymentStatus might be missing
+            data = orders.filter(o => {
+                // If explicitly paid/settled, exclude
+                if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Settled') return false;
+                if (o.status === 'cancelled') return false;
+
+                // If explicit balance due
+                if (o.balanceDue > 0) return true;
+
+                // If Pending status explicitly
+                if (o.paymentStatus === 'Pending') return true;
+
+                // Fallback: If no payment info exists, assume it's due
+                return !o.paymentStatus && (o.balanceDue === undefined || o.balanceDue > 0);
+            });
         } else if (activeTab === 'outsourcing') {
             // ... (Existing outsourcing logic) ...
             const list = [];
@@ -282,7 +297,7 @@ const Finance = () => {
 
                     return {
                         id: order.id,
-                        patientName: order.patientName || order.patientId,
+                        patientName: order.patientName || order.patientId || 'Unknown Patient',
                         date: order.createdAt,
                         testCount: (order.tests || []).length,
                         revenue: actualRevenue,
@@ -303,8 +318,13 @@ const Finance = () => {
         setReportData(data);
     };
 
-    const handleSettleTest = async (orderId, testIndex) => {
-        if (!confirm('Mark this test as settled with the partner?')) return;
+    // Open Modal instead of confirm
+    const handleSettleTest = (orderId, testIndex) => {
+        setSettlementModal({ open: true, type: 'single', data: { orderId, testIndex } });
+    };
+
+    const confirmSettleTest = async () => {
+        const { orderId, testIndex } = settlementModal.data;
         try {
             const order = orders.find(o => o.id === orderId);
             if (!order) return;
@@ -317,16 +337,20 @@ const Finance = () => {
             updatedTests[testIndex].settlementDate = new Date().toISOString();
 
             await updateDoc(orderRef, { tests: updatedTests });
-            await loadData(); // Refresh
+            await loadData();
+            setSettlementModal({ open: false, type: 'single', data: null });
         } catch (error) {
             console.error("Error settling test:", error);
             alert('Failed to update status');
         }
     };
 
-    const handleBulkSettle = async () => {
+    const handleBulkSettle = () => {
         if (selectedOutsourceTests.length === 0) return;
-        if (!confirm(`Mark ${selectedOutsourceTests.length} tests as settled?`)) return;
+        setSettlementModal({ open: true, type: 'bulk', data: null });
+    };
+
+    const confirmBulkSettle = async () => {
 
         try {
             // Group by Order ID to minimize writes
@@ -427,7 +451,7 @@ const Finance = () => {
             filename = `transactions_${new Date().toISOString().split('T')[0]}.xlsx`;
         }
 
-        // ... (Existing Branding & Write Logic) ...
+
         const brandingRows = [
             ['GreenHealth Lab'],
             ['37/A 15th Cross 16th Main Road BTM 2nd Stage Bengaluru 560076'],
@@ -486,10 +510,10 @@ const Finance = () => {
             {/* Quick Stats */}
             {activeTab === 'overview' && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="bg-gradient-to-br from-emerald-500 to-teal-600" trend="up" trendValue="12%" />
-                    <StatCard title="Today's Revenue" value={`₹${stats.todayRevenue.toLocaleString()}`} icon={Calendar} color="bg-gradient-to-br from-blue-500 to-indigo-600" subtitle="Daily performance" />
+                    <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="bg-gradient-to-br from-indigo-500 to-violet-600" trend="up" trendValue="12%" />
+                    <StatCard title="Today's Revenue" value={`₹${stats.todayRevenue.toLocaleString()}`} icon={Calendar} color="bg-gradient-to-br from-blue-500 to-indigo-500" subtitle="Daily performance" />
                     <StatCard title="Pending (Est.)" value={`₹${stats.pendingAmount.toLocaleString()}`} icon={CreditCard} color="bg-gradient-to-br from-amber-500 to-orange-600" subtitle="Unrealized revenue" />
-                    <StatCard title="Avg. Order" value={`₹${stats.avgOrderValue.toLocaleString()}`} icon={TrendingUp} color="bg-gradient-to-br from-violet-500 to-purple-600" subtitle="Per patient" />
+                    <StatCard title="Avg. Order" value={`₹${stats.avgOrderValue.toLocaleString()}`} icon={TrendingUp} color="bg-gradient-to-br from-fuchsia-500 to-pink-600" subtitle="Per patient" />
                 </div>
             )}
 
@@ -498,7 +522,7 @@ const Finance = () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Gross Profit</p>
-                            <h3 className="text-3xl font-bold text-emerald-600 mt-2">₹{profitStats.profit.toLocaleString()}</h3>
+                            <h3 className="text-3xl font-bold text-indigo-600 mt-2">₹{profitStats.profit.toLocaleString()}</h3>
                             <p className="text-xs text-slate-400 mt-1">Total revenue minus L2L costs</p>
                         </div>
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -557,9 +581,9 @@ const Finance = () => {
                                                     <td className="px-6 py-4 text-center font-medium text-slate-700">{row.count}</td>
                                                     <td className="px-6 py-4 text-right text-sm font-medium text-slate-600">₹{row.revenue.toLocaleString()}</td>
                                                     <td className="px-6 py-4 text-right text-sm font-medium text-rose-600">₹{row.cost.toLocaleString()}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{row.profit.toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-right text-sm font-bold text-indigo-600">₹{row.profit.toLocaleString()}</td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${row.revenue > 0 && (row.profit / row.revenue) > 0.4 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${row.revenue > 0 && (row.profit / row.revenue) > 0.4 ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
                                                             {row.revenue > 0 ? Math.round((row.profit / row.revenue) * 100) : 0}%
                                                         </span>
                                                     </td>
@@ -569,7 +593,7 @@ const Finance = () => {
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-2">
                                                             <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                                                                {row.patientName.charAt(0)}
+                                                                {(row.patientName || '?').charAt(0)}
                                                             </div>
                                                             <div>
                                                                 <p className="font-bold text-slate-800 text-sm">{row.patientName}</p>
@@ -580,9 +604,9 @@ const Finance = () => {
                                                     <td className="px-6 py-4 text-center font-medium text-slate-700">{row.testCount}</td>
                                                     <td className="px-6 py-4 text-right text-sm font-medium text-slate-600">₹{row.revenue.toLocaleString()}</td>
                                                     <td className="px-6 py-4 text-right text-sm font-medium text-rose-600">₹{row.cost.toLocaleString()}</td>
-                                                    <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{row.profit.toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-right text-sm font-bold text-indigo-600">₹{row.profit.toLocaleString()}</td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${row.margin > 40 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${row.margin > 40 ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
                                                             {row.margin}%
                                                         </span>
                                                     </td>
@@ -747,6 +771,72 @@ const Finance = () => {
                             )}
                         </div>
                     )}
+
+                    {/* Outsourcing Chart */}
+                    {activeTab === 'outsourcing' && Object.keys(outsourcingStats).length > 0 && (
+                        <div className="p-8 border-b border-white/50 bg-gradient-to-b from-white/80 to-slate-50/50 backdrop-blur-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center">
+                                    <div className="w-2 h-8 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-full mr-3 shadow-lg shadow-emerald-200"></div>
+                                    Vendor Performance Analysis
+                                </h4>
+                                <span className="text-xs font-semibold text-slate-400 bg-white px-3 py-1 rounded-full shadow-sm border border-slate-100">Revenue vs Cost</span>
+                            </div>
+                            <div className="h-72 w-full bg-white/50 rounded-2xl border border-white/60 shadow-inner p-4">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={Object.keys(outsourcingStats).map(partner => ({
+                                            name: partner,
+                                            cost: outsourcingStats[partner].due + outsourcingStats[partner].paid,
+                                            margin: outsourcingStats[partner].margin
+                                        }))}
+                                        margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} tickFormatter={(value) => `₹${value}`} />
+                                        <Tooltip
+                                            cursor={{ fill: 'rgba(255, 255, 255, 0.5)' }}
+                                            contentStyle={{
+                                                borderRadius: '16px',
+                                                border: '1px solid rgba(255,255,255,0.8)',
+                                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                                                backgroundColor: 'rgba(255,255,255,0.95)',
+                                                backdropFilter: 'blur(8px)'
+                                            }}
+                                        />
+                                        <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                        <Bar dataKey="cost" name="L2L Cost" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={48}>
+                                            {
+                                                Object.keys(outsourcingStats).map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill="url(#colorCost)" />
+                                                ))
+                                            }
+                                        </Bar>
+                                        <Bar dataKey="margin" name="Net Margin" fill="#10b981" radius={[6, 6, 0, 0]} barSize={48}>
+                                            {
+                                                Object.keys(outsourcingStats).map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill="url(#colorMargin)" />
+                                                ))
+                                            }
+                                        </Bar>
+                                        <defs>
+                                            <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#fb7185" stopOpacity={1} />
+                                                <stop offset="100%" stopColor="#f43f5e" stopOpacity={1} />
+                                            </linearGradient>
+                                            <linearGradient id="colorMargin" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#34d399" stopOpacity={1} />
+                                                <stop offset="100%" stopColor="#10b981" stopOpacity={1} />
+                                            </linearGradient>
+                                        </defs>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                    )}
+
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
@@ -771,10 +861,10 @@ const Finance = () => {
                             <tbody className="divide-y divide-slate-50">
                                 {reportData.length === 0 ? <tr><td colSpan="6" className="text-center py-8 text-slate-400">No data available.</td></tr> : reportData.map((row, idx) => (
                                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                        {activeTab === 'daily' && (<><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.date}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">₹{row.revenue}</td></>)}
+                                        {activeTab === 'daily' && (<><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.date}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-indigo-600 text-right">₹{row.revenue}</td></>)}
                                         {activeTab === 'tests' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.code}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.count}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
                                         {activeTab === 'patients' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.id}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.name}</td><td className="px-6 py-4 text-sm text-slate-600">{row.visits}</td><td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">₹{row.revenue}</td></>)}
-                                        {activeTab === 'trackers' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.id}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.patientName || row.patientId}</td><td className="px-6 py-4 text-sm text-slate-600">{new Date(row.createdAt).toLocaleDateString()}</td><td className="px-6 py-4"><span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Pending</span></td><td className="px-6 py-4 text-sm font-bold text-rose-600 text-right">₹{row.balanceDue || row.totalAmount}</td></>)}
+                                        {activeTab === 'trackers' && (<><td className="px-6 py-4 text-xs font-mono text-slate-500">{row.id}</td><td className="px-6 py-4 text-sm font-medium text-slate-700">{row.patientName || row.patientId}</td><td className="px-6 py-4 text-sm text-slate-600">{new Date(row.createdAt).toLocaleDateString()}</td><td className="px-6 py-4"><span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-[10px] font-bold uppercase">{row.paymentStatus || 'Pending'}</span></td><td className="px-6 py-4 text-sm font-bold text-rose-600 text-right">₹{row.balanceDue || row.totalAmount}</td></>)}
                                         {activeTab === 'outsourcing' && (
                                             <>
                                                 <td className="px-6 py-4">
@@ -793,9 +883,9 @@ const Finance = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-sm font-medium text-slate-600 text-right">₹{row.price}</td>
                                                 <td className="px-6 py-4 text-sm font-medium text-rose-600 text-right">₹{row.cost}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-emerald-600 text-right">₹{row.margin}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-indigo-600 text-right">₹{row.margin}</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${row.status === 'Settled' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${row.status === 'Settled' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
                                                         {row.status}
                                                     </span>
                                                 </td>
@@ -817,8 +907,47 @@ const Finance = () => {
                         </table>
                     </div>
                 </div>
+            )
+            }
+            {/* Settlement Modal (Ultra Pro - Royal Indigo Theme) */}
+            {settlementModal.open && (
+                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-indigo-500/20 w-full max-w-sm overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-white/50 ring-1 ring-white/50">
+                        <div className="relative">
+                            <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-indigo-50/50 to-transparent"></div>
+                            <div className="relative p-8 text-center">
+                                <div className="h-20 w-20 bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/30 ring-4 ring-white">
+                                    <Wallet className="h-10 w-10 text-white drop-shadow-md" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-800 mb-2 tracking-tight">Confirm Settlement</h2>
+                                <p className="text-slate-500 mb-8 font-medium">
+                                    {settlementModal.type === 'bulk'
+                                        ? <span>Are you sure you want to mark <span className="text-indigo-600 font-bold">{selectedOutsourceTests.length} tests</span> as settled?</span>
+                                        : 'Are you sure you want to mark this test as settled?'}
+                                </p>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setSettlementModal({ open: false, type: 'single', data: null })}
+                                        className="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all hover:scale-[1.02] active:scale-95"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={settlementModal.type === 'bulk' ? confirmBulkSettle : confirmSettleTest}
+                                        className="flex-1 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold rounded-2xl hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-95"
+                                    >
+                                        Confirm
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
-        </div>
+            {
+
+            }
+        </div >
     );
 };
 

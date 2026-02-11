@@ -1142,56 +1142,110 @@ const Admin = () => {
     // --- Action Handlers ---
 
     const handleUserSave = async (userData, isEditing) => {
-        if (isEditing && userData.id) {
-            await storage.updateUser(userData.id, userData);
-            // Log user update
-            await logAdmin.userUpdated(userData.username, { role: userData.role, department: userData.department });
-        } else {
-            await storage.saveUser(userData);
-            // Log user creation
-            await logAdmin.userCreated(userData.username, userData.role);
+        try {
+            if (isEditing && userData.id) {
+                await storage.updateUser(userData.id, userData);
+                // Log user update
+                await logAdmin.userUpdated(userData.username, { role: userData.role, department: userData.department });
+            } else {
+                await storage.saveUser(userData);
+                // Log user creation
+                await logAdmin.userCreated(userData.username, userData.role);
+            }
+            loadAllData();
+        } catch (error) {
+            console.error("User Save Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to save user.");
+            }
         }
-        loadAllData();
     };
 
     const handleUserDelete = async (id) => {
         if (confirm('Remove this user access?')) {
-            // Get user details before deletion for logging
-            const users = await storage.getUsers();
-            const user = users.find(u => u.id === id);
+            try {
+                // Get user details before deletion for logging
+                const users = await storage.getUsers();
+                const user = users.find(u => u.id === id);
 
-            await storage.deleteUser(id);
+                await storage.deleteUser(id);
 
-            // Log user deletion
-            if (user) {
-                await logAdmin.userDeleted(user.username);
+                // Log user deletion
+                if (user) {
+                    await logAdmin.userDeleted(user.username);
+                }
+
+                loadAllData();
+            } catch (error) {
+                console.error("User Delete Error:", error);
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    alert("Permission Denied: Ask Admin to check Firestore Rules.");
+                } else {
+                    alert("Failed to delete user.");
+                }
             }
-
-            loadAllData();
         }
     };
 
     const handleReferralSave = async (refData) => {
-        await storage.saveReferral(refData);
-        loadAllData();
+        try {
+            await storage.saveReferral(refData);
+            loadAllData();
+        } catch (error) {
+            console.error("Referral Save Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to save referral.");
+            }
+        }
     };
 
     const handleReferralDelete = async (id) => {
         if (confirm('Delete this referral?')) {
-            await storage.deleteReferral(id);
-            loadAllData();
+            try {
+                await storage.deleteReferral(id);
+                loadAllData();
+            } catch (error) {
+                console.error("Referral Delete Error:", error);
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    alert("Permission Denied: Ask Admin to check Firestore Rules.");
+                } else {
+                    alert("Failed to delete referral.");
+                }
+            }
         }
     };
 
     const handleOutsourceLabSave = async (labData) => {
-        await storage.saveOutsourceLab(labData);
-        loadAllData();
+        try {
+            await storage.saveOutsourceLab(labData);
+            loadAllData();
+        } catch (error) {
+            console.error("Lab Save Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to save lab.");
+            }
+        }
     };
 
     const handleOutsourceLabDelete = async (id) => {
         if (confirm('Delete this lab?')) {
-            await storage.deleteOutsourceLab(id);
-            loadAllData();
+            try {
+                await storage.deleteOutsourceLab(id);
+                loadAllData();
+            } catch (error) {
+                console.error("Lab Delete Error:", error);
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    alert("Permission Denied: Ask Admin to check Firestore Rules.");
+                } else {
+                    alert("Failed to delete lab.");
+                }
+            }
         }
     };
 
@@ -1216,23 +1270,45 @@ const Admin = () => {
                 alert('Pathologist Signature uploaded successfully!');
             } catch (error) {
                 console.error("Upload failed", error);
-                alert(`Upload failed: ${error.message}`);
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    alert("Permission Denied: Ask Admin to check Firestore Rules.");
+                } else {
+                    alert(`Upload failed: ${error.message}`);
+                }
             }
         };
         reader.readAsDataURL(file);
     };
 
     const handleDeleteSignature = async () => {
-        await storage.saveSettings({ signature: null });
-        loadAllData();
+        try {
+            await storage.saveSettings({ signature: null });
+            loadAllData();
+        } catch (error) {
+            console.error("Delete Signature Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to delete signature.");
+            }
+        }
     };
 
     const handleLabDetailsSave = async (details) => {
         // Only save specifically the lab details part of settings
         // storage.saveSettings merges updates, so this is safe
-        await storage.saveSettings({ labDetails: details });
-        loadAllData();
-        alert('Lab details updated successfully!');
+        try {
+            await storage.saveSettings({ labDetails: details });
+            loadAllData();
+            alert('Lab details updated successfully!');
+        } catch (error) {
+            console.error("Lab Details Save Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to save lab details.");
+            }
+        }
     };
 
     const handleLabTechUpload = (e) => {
@@ -1255,15 +1331,28 @@ const Admin = () => {
                 alert('Lab Technician Signature uploaded successfully!');
             } catch (error) {
                 console.error("Upload failed", error);
-                alert(`Upload failed: ${error.message}`);
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    alert("Permission Denied: Ask Admin to check Firestore Rules.");
+                } else {
+                    alert(`Upload failed: ${error.message}`);
+                }
             }
         };
         reader.readAsDataURL(file);
     };
 
     const handleDeleteLabTech = async () => {
-        await storage.saveSettings({ labTechSignature: null });
-        loadAllData();
+        try {
+            await storage.saveSettings({ labTechSignature: null });
+            loadAllData();
+        } catch (error) {
+            console.error("Delete Signature Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to delete signature.");
+            }
+        }
     };
 
     // Generic Settings Handlers
@@ -1273,15 +1362,33 @@ const Admin = () => {
         if (file.size > 500 * 1024) { alert('File too large (Max 500KB)'); return; }
         const reader = new FileReader();
         reader.onloadend = async () => {
-            await storage.saveSettings({ [key]: reader.result });
-            loadAllData();
+            try {
+                await storage.saveSettings({ [key]: reader.result });
+                loadAllData();
+            } catch (error) {
+                console.error("Setting Upload Error:", error);
+                if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                    alert("Permission Denied: Ask Admin to check Firestore Rules.");
+                } else {
+                    alert("Failed to upload setting.");
+                }
+            }
         };
         reader.readAsDataURL(file);
     };
 
     const handleSettingDelete = async (key) => {
-        await storage.saveSettings({ [key]: null });
-        loadAllData();
+        try {
+            await storage.saveSettings({ [key]: null });
+            loadAllData();
+        } catch (error) {
+            console.error("Setting Delete Error:", error);
+            if (error.code === 'permission-denied' || error.message?.includes('permission-denied')) {
+                alert("Permission Denied: Ask Admin to check Firestore Rules.");
+            } else {
+                alert("Failed to delete setting.");
+            }
+        }
     };
 
     const handleHeaderUpload = (e) => handleSettingUpload(e, 'headerImage');
